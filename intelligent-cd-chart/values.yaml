@@ -181,3 +181,16 @@ mcpServers:
       SERVICENOW_PASSWORD: "your-password"
       SERVICENOW_AUTH_TYPE: "basic"
       SERVICENOW_TOOL_PACKAGE: "service_desk"
+
+  githubMcp:
+    name: github-mcp
+    replicaCount: 1
+    image:
+      repository: "quay.io/dgarciap/github-mcp"
+      tag: "latest"
+    mcpServer:
+      port: 8080
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "your-personal-access-token"
+      GITHUB_TOOLSETS: "pull_requests, repos, issues"
+      GITHUB_READONLY: "true"

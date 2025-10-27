@@ -129,6 +129,7 @@ echo "✅ Distributed Tracing Stack configured successfully!"
 
 echo -e "\n🚀 Step 6: Deploying Intelligent CD application..."
 
+# Create the secret for the GitHub MCP Server
 # Option 1: Helm template
 helm template intelligent-cd-chart \
 --set inference.model="$MODEL_NAME" \
@@ -145,6 +146,9 @@ helm template intelligent-cd-chart \
 --set mcpServers.servicenowMcp.env.SERVICENOW_PASSWORD="$SERVICENOW_PASSWORD" \
 --set mcpServers.servicenowMcp.env.MCP_TOOL_PACKAGE="$SERVICENOW_MCP_TOOL_PACKAGE" \
 --set llamaStack.websearch.tavilyApiKey="$TAVILY_SEARCH_API_KEY" \
+--set mcpServers.githubMcp.env.GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PAT" \
+--set mcpServers.githubMcp.env.GITHUB_TOOLSETS="$GITHUB_MCP_SERVER_TOOLSETS" \
+--set mcpServers.githubMcp.env.GITHUB_READONLY="$GITHUB_MCP_SERVER_READONLY" \
 --set RAG.git_token="$GITLAB_PAT" \
 | oc apply -f -
 
