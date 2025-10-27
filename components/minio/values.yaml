@@ -1,0 +1,21 @@
+# Default values for minio.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+clusterDomain: "opentlc.com"
+namespace: minio
+service:
+  name: minio
+  port: 9000
+adminUser:
+  username: minio
+  password: minio123
+  region: "none"
+
+initJob:
+  image: quay.io/alopezme/aws-cli:latest
+
+initBuckets:
+  - name: "intelligent-cd-pipelines"
+  - name: "intelligent-cd-tempo"
+

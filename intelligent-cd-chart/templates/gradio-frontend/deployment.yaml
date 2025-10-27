@@ -1,0 +1,120 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.gradioUI.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.gradioUI.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  replicas: {{ .Values.gradioUI.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.gradioUI.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.gradioUI.name }}
+      # annotations:
+      #   checksum/config: {{ printf "%s-%s-%s-%s-%s-%s-%s" (.Values.gradioUI.config.form_tab.sampling_params | toJson) (.Values.gradioUI.config.form_tab.tools | toJson) (.Values.gradioUI.config.chat_tab.sampling_params | toJson) (.Values.gradioUI.config.chat_tab.tools | toJson) (.Values.gradioUI.config.argocd | toJson) (tpl ($.Files.Get "conf/app/chat_prompt.txt") .) (tpl ($.Files.Get "conf/app/form_prompt.txt") .) | sha256sum | trunc 63 }}
+    spec:
+      terminationGracePeriodSeconds: 5
+      serviceAccountName: "default"
+      containers:
+        - name: {{ .Values.gradioUI.name }}
+          image: "{{ .Values.gradioUI.image.repository }}:{{ .Values.gradioUI.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.gradioUI.image.pullPolicy | default "" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 7860
+              protocol: TCP
+          env:
+            - name: GRADIO_SERVER_NAME
+              value: 0.0.0.0
+            - name: GRADIO_SERVER_PORT
+              value: '7860'            
+            - name: LLAMA_STACK_URL
+              value: 'http://{{ .Values.llamaStack.name }}-service.{{ .Values.global.namespace }}:8321'
+            - name: LOG_LEVEL
+              value: "{{ .Values.gradioUI.env.LOG_LEVEL | default "INFO" }}"
+            - name: CHAT_PROMPT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: chat_prompt
+            - name: FORM_PROMPT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: form_prompt
+            # Form tab configuration
+            - name: FORM_SAMPLING_PARAMS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: form_sampling_params
+            - name: FORM_TOOLS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: form_tools
+            - name: FORM_MAX_INFER_ITERS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: form_max_infer_iters
+            # Chat tab configuration
+            - name: CHAT_SAMPLING_PARAMS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: chat_sampling_params
+            - name: CHAT_TOOLS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: chat_tools
+            - name: CHAT_MAX_INFER_ITERS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: chat_max_infer_iters
+            # ArgoCD configuration
+            - name: ARGOCD_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: argocd_base_url
+            - name: ARGOCD_API_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: argocd_api_token
+          livenessProbe:
+            httpGet:
+              path: "/"
+              port: 7860
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: "/"
+              port: 7860
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- with .Values.gradioUI.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

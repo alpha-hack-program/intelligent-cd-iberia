@@ -1,0 +1,52 @@
+{{- if .Values.pipelines.enabled }}
+---
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: dspa
+  namespace: {{ .Values.global.namespace }}{{ .Values.pipelines.namespaceSuffix }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  apiServer:
+    artifactSignedURLExpirySeconds: 60
+    caBundleFileMountPath: ""
+    caBundleFileName: ""
+    cacheEnabled: true
+    deploy: true
+    enableOauth: true
+    enableSamplePipeline: false
+    managedPipelines:
+      instructLab:
+        state: Managed
+    pipelineStore: database
+  database:
+    disableHealthCheck: false
+    mariaDB:
+      deploy: true
+      pipelineDBName: mlpipeline
+      pvcSize: 10Gi
+      username: mlpipeline
+  dspVersion: v2
+  objectStorage:
+    disableHealthCheck: false
+    enableExternalRoute: false
+    externalStorage:
+      basePath: ""
+      bucket: {{ .Values.global.namespace }}{{ .Values.pipelines.namespaceSuffix }}-{{ .Values.s3Bucket.connection.secretName }}
+      host: "{{ .Values.s3Bucket.connection.endpoint }}"
+      port: "{{ .Values.s3Bucket.connection.port }}"
+      region: "{{ .Values.s3Bucket.connection.region }}"
+      s3CredentialsSecret:
+        accessKey: AWS_ACCESS_KEY_ID
+        secretKey: AWS_SECRET_ACCESS_KEY
+        secretName: "{{ .Values.s3Bucket.connection.secretName }}"
+      scheme: "{{ .Values.s3Bucket.connection.scheme }}"
+  persistenceAgent:
+    deploy: true
+    numWorkers: 2
+  podToPodTLS: true
+  scheduledWorkflow:
+    cronScheduleTimezone: UTC
+    deploy: true
+{{- end }}

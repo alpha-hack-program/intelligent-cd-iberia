@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.llamaStack.name }}-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.llamaStack.name }}
+spec:
+  ports:
+    - name: http
+      port: 8321
+      targetPort: 8321
+      protocol: TCP
+  selector:
+    app: {{ .Values.llamaStack.name }}

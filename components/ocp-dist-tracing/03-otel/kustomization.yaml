@@ -1,0 +1,20 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: otel
+
+resources:
+  - ns-otel.yaml
+  - sa-otel-collector.yaml
+  - opentelemetrycollector-otel.yaml
+
+  # Allow everybody to get traces in both tenants
+  - cr-tempostack-traces-writer-dev.yaml
+  - cr-tempostack-traces-writer-prod.yaml
+  - crb-tempostack-traces-writer-dev.yaml
+  - crb-tempostack-traces-writer-prod.yaml
+
+  # Only needed for k8sattributes
+  - cr-openshift-tracing-otel-collector.yaml
+  - crb-openshift-tracing-otel-collector.yaml

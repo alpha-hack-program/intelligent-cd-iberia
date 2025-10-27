@@ -1,0 +1,13 @@
+{{- if .Values.mcpServers }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.llamaStack.name }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.llamaStack.name }}
+data:
+  run.yaml: |-
+    {{- tpl ($.Files.Get "conf/llama-stack/mcp-run.yaml") . | nindent 4 }}
+{{- end }}

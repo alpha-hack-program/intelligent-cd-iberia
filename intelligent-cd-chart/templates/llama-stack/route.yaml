@@ -1,0 +1,18 @@
+{{- if .Values.llamaStack.route.enabled }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.llamaStack.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.llamaStack.name }}
+spec:
+  to:
+    kind: Service
+    name: {{ .Values.llamaStack.name }}-service
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+{{- end }}

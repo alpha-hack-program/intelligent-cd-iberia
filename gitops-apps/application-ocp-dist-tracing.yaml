@@ -1,0 +1,21 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  labels:
+    app: intelligent-cd
+    component: ocp-dist-tracing
+  name: ocp-dist-tracing
+  namespace: openshift-gitops
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+  project: default
+  source:
+    path: components/ocp-dist-tracing
+    repoURL: https://gitlab.consulting.redhat.com/rh126-demojam/intelligent-cd-iberia.git
+    targetRevision: main
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false

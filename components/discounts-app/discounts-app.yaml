@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discounts
+  namespace: discounts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discounts
+  template:
+    metadata:
+      labels:
+        app: discounts
+    spec:
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: discounts-configmap-env-base
+        image: quay.io/dseveria/discounts:v1.0.1
+        name: discounts
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: discounts-configmap-env-base
+  namespace: discounts
+data:
+  application.colour: black
+  application.mode: online
+  application.version: v1.0.1
+  quarkus.log.level: debug
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discounts
+  namespace: discounts
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: discounts
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: discounts
+  namespace: discounts
+spec:
+  port:
+    targetPort: 8080
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  to:
+    kind: Service
+    name: discounts
+    weight: 100

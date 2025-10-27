@@ -1,0 +1,14 @@
+{{- if and .Values.pipelines.enabled .Values.pipelines.namespaceSuffix }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.namespace }}{{ .Values.pipelines.namespaceSuffix }}
+  labels:
+    kubernetes.io/metadata.name: {{ .Values.global.namespace }}{{ .Values.pipelines.namespaceSuffix }}
+    opendatahub.io/dashboard: 'true'
+    argocd.argoproj.io/managed-by: openshift-gitops
+  annotations:
+    openshift.io/description: 'Auto-generated DataScienceProject for User: {{ .Values.user }}'
+    openshift.io/display-name: {{ .Values.global.namespace }}{{ .Values.pipelines.namespaceSuffix }}
+{{- end }}

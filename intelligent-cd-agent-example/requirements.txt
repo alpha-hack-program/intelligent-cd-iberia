@@ -1,0 +1,18 @@
+# Llama Stack Agent Chatbot Requirements
+
+# Core Llama Stack dependencies
+llama-stack-client==0.2.21
+llama-stack==0.2.9
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# Terminal output formatting
+termcolor>=2.4.0
+
+# For enhanced HTTP requests and SSL handling
+requests>=2.31.0
+httpx>=0.25.0
+
+# For type hints (Python 3.5+)
+typing-extensions>=4.8.0

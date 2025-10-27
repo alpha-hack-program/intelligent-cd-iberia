@@ -1,0 +1,99 @@
+---
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  name: {{ .Values.llamaStack.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.llamaStack.name }}
+spec:
+  replicas: 1
+  server:
+    distribution:
+      {{- if .Values.llamaStack.image }}
+      image: {{ .Values.llamaStack.image | quote }}
+      {{- else }}
+      name: rh-dev
+      {{- end }}
+    containerSpec:
+      resources:
+        requests:
+          memory: "500Mi"
+          cpu: "100m"
+        limits:
+          memory: "8Gi"
+          cpu: "2"
+      command:
+        - /bin/sh
+        - '-c'
+        - llama stack run /etc/llama-stack/run.yaml
+      env:
+        - name: INFERENCE_MODEL
+          valueFrom:
+            secretKeyRef:
+              key: INFERENCE_MODEL
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: VLLM_URL
+          valueFrom:
+            secretKeyRef:
+              key: VLLM_URL
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: VLLM_TLS_VERIFY
+          valueFrom:
+            secretKeyRef:
+              key: VLLM_TLS_VERIFY
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: VLLM_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: VLLM_API_TOKEN
+              name: {{ .Values.llamaStack.name }}-secret
+        {{- if .Values.mcpServers }}
+        - name: MCP_OCP_URL
+          valueFrom:
+            secretKeyRef:
+              key: MCP_OCP_URL
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: MCP_ARGOCD_URL
+          valueFrom:
+            secretKeyRef:
+              key: MCP_ARGOCD_URL
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: MCP_SERVICENOW_URL
+          valueFrom:
+            secretKeyRef:
+              key: MCP_SERVICENOW_URL
+              name: {{ .Values.llamaStack.name }}-secret
+        {{- end }}
+        {{- if .Values.llamaStack.opentelemetry.enabled }}
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            secretKeyRef:
+              key: OTEL_SERVICE_NAME
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: TELEMETRY_SINKS
+          valueFrom:
+            secretKeyRef:
+              key: TELEMETRY_SINKS
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+              name: {{ .Values.llamaStack.name }}-secret
+        {{- end }}
+        {{- if .Values.llamaStack.websearch.tavilyApiKey }}
+        - name: TAVILY_SEARCH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: TAVILY_SEARCH_API_KEY
+              name: {{ .Values.llamaStack.name }}-secret
+        {{- end }}
+    {{- if .Values.mcpServers }}
+    # Default config in /opt/app-root/run.yaml
+    userConfig:
+      configMapName: {{ .Values.llamaStack.name }}-config
+    {{- end }}
+    storage:
+      size: "20Gi"
+      # mountPath: "/opt/app-root/src/.llama/distributions/rh-dev"

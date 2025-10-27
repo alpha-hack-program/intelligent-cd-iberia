@@ -1,0 +1,230 @@
+"""
+Chat tab functionality for Intelligent CD Chatbot.
+
+This module handles the main chat interface with LLM using ReAct methodology.
+"""
+
+import os
+import json
+from typing import List, Dict
+from llama_stack_client import LlamaStackClient
+from llama_stack_client.lib.agents.react.agent import ReActAgent
+from llama_stack_client.lib.agents.react.tool_parser import ReActOutput
+from utils import get_logger
+
+
+class ChatTab:
+    """Handles chat functionality with Llama Stack LLM"""
+    
+    def __init__(self, client: LlamaStackClient, model: str):
+        self.client = client
+        self.model = model
+        self.logger = get_logger("chat")
+        self.max_infer_iters = int(os.getenv("CHAT_MAX_INFER_ITERS", "15"))
+        
+        # Load configuration from environment variables
+        self.sampling_params, self.tools_json, self.model_prompt = self._load_config()
+
+        # Initialize agent and session for the entire chat
+        self.agent, self.session_id = self._initialize_agent()
+    
+    def _load_config(self) -> tuple[dict, list, str]:
+        """Load all configuration from environment variables"""
+        # Load sampling parameters
+        sampling_params_str = os.getenv("CHAT_SAMPLING_PARAMS", "{}")
+        sampling_params = json.loads(sampling_params_str)
+        
+        # Load tools
+        tools_str = os.getenv("CHAT_TOOLS", "{}")
+        tools = json.loads(tools_str)
+        
+        # Load model prompt
+        model_prompt = os.getenv("CHAT_PROMPT", "You are a helpful assistant.")
+        
+        # Debug logging
+        self.logger.debug(f"CHAT_SAMPLING_PARAMS: {sampling_params}")
+        self.logger.debug(f"CHAT_TOOLS: {tools}")
+        self.logger.debug(f"CHAT_PROMPT: {str(model_prompt)[:200]}...")
+        
+        return sampling_params, tools, model_prompt
+    
+    def _initialize_agent(self) -> tuple[ReActAgent, str]:
+        """Initialize agent and session that will be reused for the entire chat"""
+
+        formatted_prompt = self.model_prompt.format(tool_groups=self.tools_json)
+
+        # Log agent creation details
+        self.logger.info("=" * 60)
+        self.logger.info("Creating Chat Tab ReActAgent")
+        self.logger.info("=" * 60)
+        self.logger.info(f"Model: {self.model}")
+        self.logger.info(f"Toolgroups available ({len(self.tools_json)}): {self.tools_json}")
+        self.logger.info(f"Max infer iters: {self.max_infer_iters}")
+        self.logger.info(f"Sampling params: {self.sampling_params}")
+
+        agent = ReActAgent(
+            client=self.client,
+            model=self.model,
+            instructions=formatted_prompt,
+            tools=self.tools_json,
+            tool_config={"tool_choice": "auto"},  # Ensure tools are actually executed
+            response_format={
+                "type": "json_schema",
+                "json_schema": ReActOutput.model_json_schema(),
+            },
+            sampling_params=self.sampling_params,
+            max_infer_iters=self.max_infer_iters
+        )
+        
+        self.logger.info("✅ ReActAgent created successfully")
+
+        # Create session for the agent
+        session = agent.create_session(session_name="OCP_Chat_Session")
+        
+        # Handle both object with .id attribute and direct string return
+        if hasattr(session, 'id'):
+            session_id = session.id
+        else:
+            session_id = str(session)
+        
+        self.logger.info(f"✅ Session created: {session_id}")
+        self.logger.info("=" * 60)
+        return agent, session_id
+    
+    def chat_completion(self, message: str, chat_history: List[Dict[str, str]]) -> tuple:
+        """Handle chat with LLM using Agent → Session → Turn structure"""
+        from gradio import ChatMessage
+        
+        # Add user message to history
+        chat_history.append(ChatMessage(role="user", content=message))
+        
+        # Get LLM response using Agent API with thinking steps
+        result, thinking_steps = self._execute_agent_turn_with_thinking(message)
+        
+        # Add thinking steps as collapsible sections
+        if thinking_steps:
+            for i, step in enumerate(thinking_steps):
+                chat_history.append(ChatMessage(
+                    role="assistant", 
+                    content=step["content"],
+                    metadata={"title": step["title"]}
+                ))
+        
+        # Add final assistant response
+        chat_history.append(ChatMessage(role="assistant", content=result))
+        
+        return chat_history, ""
+    
+    def _execute_agent_turn_with_thinking(self, message: str) -> tuple[str, list]:
+        """Execute agent turn and capture thinking steps for display"""
+        import json
+        self.logger.debug(f"Executing agent turn with thinking capture")
+        
+        thinking_steps = []
+        
+        try:
+            response = self.agent.create_turn(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": message
+                    }
+                ],
+                session_id=self.session_id,
+                stream=False,  # Keep non-streaming for now
+            )
+            
+            # Debug: Print response structure (keep for logging)
+            self.logger.info(f"Response type: {type(response)}")
+            self.logger.info(f"Response attributes: {dir(response)}")
+            
+            # Extract thinking steps from response.steps if available
+            if hasattr(response, 'steps') and response.steps:
+                self.logger.info(f"Found {len(response.steps)} steps")
+                for i, step in enumerate(response.steps):
+                    self.logger.info(f"Step {i}: {type(step)} - {dir(step)}")
+                    
+                    # Parse ReActAgent step structure
+                    step_content = ""
+                    step_title = f"Step {i+1}"
+                    
+                    # Check if this is an InferenceStep with api_model_response
+                    if hasattr(step, 'api_model_response') and hasattr(step.api_model_response, 'content'):
+                        try:
+                            # Parse the JSON content from the ReActAgent response
+                            content_json = json.loads(step.api_model_response.content)
+                            
+                            # Extract thought if available
+                            if 'thought' in content_json and content_json['thought']:
+                                step_content = content_json['thought']
+                                step_title = "🧠 Thinking"
+                                thinking_steps.append({
+                                    "title": step_title,
+                                    "content": step_content.strip()
+                                })
+                            
+                            # Extract action if available
+                            if 'action' in content_json and content_json['action']:
+                                action = content_json['action']
+                                if isinstance(action, dict) and 'tool_name' in action:
+                                    action_content = f"Using tool: {action['tool_name']}"
+                                    if 'tool_params' in action and action['tool_params']:
+                                        params_str = ", ".join([f"{p.get('name', 'param')}={p.get('value', '')}" for p in action['tool_params']])
+                                        action_content += f" with parameters: {params_str}"
+                                    
+                                    thinking_steps.append({
+                                        "title": "🔧 Action",
+                                        "content": action_content
+                                    })
+                            
+                            # Extract answer if available (this will be the final response)
+                            if 'answer' in content_json and content_json['answer']:
+                                step_content = content_json['answer']
+                                step_title = "📋 Result"
+                                thinking_steps.append({
+                                    "title": step_title,
+                                    "content": step_content.strip()
+                                })
+                                
+                        except json.JSONDecodeError as e:
+                            self.logger.warning(f"Failed to parse JSON content from step {i}: {e}")
+                            # Fallback to string representation
+                            step_content = str(step.api_model_response.content)
+                            thinking_steps.append({
+                                "title": f"💭 Step {i+1}",
+                                "content": step_content.strip()
+                            })
+                    
+                    # Fallback: try other content attributes
+                    elif hasattr(step, 'content'):
+                        step_content = str(step.content)
+                        thinking_steps.append({
+                            "title": f"💭 Step {i+1}",
+                            "content": step_content.strip()
+                        })
+            
+            # Get final response content - extract only the answer part
+            final_content = ""
+            if hasattr(response, 'output_message') and hasattr(response.output_message, 'content'):
+                try:
+                    # Try to parse as JSON to extract just the answer
+                    content_json = json.loads(response.output_message.content)
+                    if 'answer' in content_json and content_json['answer']:
+                        final_content = content_json['answer']
+                    else:
+                        final_content = response.output_message.content
+                except json.JSONDecodeError:
+                    # If not JSON, use the content as-is
+                    final_content = response.output_message.content
+            else:
+                final_content = str(response)
+            
+            self.logger.info(f"Captured {len(thinking_steps)} thinking steps")
+            self.logger.info(f"Final content length: {len(final_content)} characters")
+            return final_content, thinking_steps
+            
+        except Exception as e:
+            self.logger.error(f"Error in agent turn: {str(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            return f"Error: {str(e)}", []

@@ -1,0 +1,56 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  labels:
+    app: intelligent-cd
+    component: intelligent-cd
+  name: intelligent-cd
+  namespace: openshift-gitops
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+  project: default
+  source:
+    path: intelligent-cd-chart
+    repoURL: https://gitlab.consulting.redhat.com/rh126-demojam/intelligent-cd-iberia.git
+    targetRevision: main
+    helm:
+      values: |
+        global:
+          clusterDomain: $CLUSTER_DOMAIN
+        inference:
+          model: $MODEL_NAME
+          url: $MODEL_API_URL
+          apiToken: $MODEL_API_TOKEN
+        gradioUI:
+          config:
+            argocd:
+              base_url: $ARGOCD_BASE_URL
+              api_token: $ARGOCD_API_TOKEN
+            github:
+              auth_token: $GITHUB_MCP_SERVER_AUTH_TOKEN
+              toolsets: $GITHUB_MCP_SERVER_TOOLSETS
+              readonly: $GITHUB_MCP_SERVER_READONLY
+        mcpServers:
+          servicenowMcp:
+            env:
+              SERVICENOW_INSTANCE_URL: $SERVICENOW_INSTANCE_URL
+              SERVICENOW_AUTH_TYPE: $SERVICENOW_AUTH_TYPE
+              SERVICENOW_USERNAME: $SERVICENOW_USERNAME
+              SERVICENOW_PASSWORD: $SERVICENOW_PASSWORD
+              MCP_TOOL_PACKAGE: $SERVICENOW_MCP_TOOL_PACKAGE
+        llamaStack:
+          endpoint: $LLS_ENDPOINT
+          websearch:
+            tavilyApiKey: $TAVILY_SEARCH_API_KEY
+          route:
+            enabled: true
+        RAG:
+          git_token: $GITLAB_PAT
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,2 @@
+gradio>=5.44.1
+llama-stack-client>=0.2.20

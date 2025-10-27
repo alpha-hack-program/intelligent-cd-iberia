@@ -1,0 +1,63 @@
+{{- if .Values.initBuckets }}
+{{- range .Values.initBuckets }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name:  create-s3-bucket-{{ .name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: create-s3-bucket
+    component: s3-bucket-creation
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 0
+  template:
+    metadata:
+      labels:
+        app: create-s3-bucket
+        component: s3-bucket-creation
+    spec:
+      containers:
+      - name: s3-bucket-creator
+        image: {{ $.Values.initJob.image }}
+        imagePullPolicy: Always
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          #!/bin/bash
+          AWS_S3_BUCKET="{{ .name }}"
+          AWS_ENDPOINT_URL="http://{{ $.Values.service.name }}:{{ $.Values.service.port }}"
+          export AWS_ACCESS_KEY_ID={{ $.Values.adminUser.username }}
+          export AWS_SECRET_ACCESS_KEY={{ $.Values.adminUser.password }}
+          export AWS_DEFAULT_REGION={{ $.Values.adminUser.region }}
+
+          # # Print environment variables
+          # echo -e "\n=============="
+          # echo -e "ENVIRONMENT VARIABLES:"
+          # echo -e " * AWS_ENDPOINT_URL: $AWS_ENDPOINT_URL"
+          # echo -e " * AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID"
+          # echo -e " * AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY"
+          # echo -e " * AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+          # echo -e " * AWS_S3_BUCKET: $AWS_S3_BUCKET"
+          # echo -e "==============\n"
+
+          # Check if the bucket exists in MinIO
+          if aws --endpoint-url $AWS_ENDPOINT_URL --no-verify-ssl s3api head-bucket --bucket $AWS_S3_BUCKET &> /dev/null; then
+              echo -e "Check. S3 bucket already exists in MinIO, do nothing."
+          else
+              echo -e "Check. Creating S3 bucket in MinIO..."
+              aws --endpoint-url $AWS_ENDPOINT_URL --no-verify-ssl s3api create-bucket \
+                  --bucket $AWS_S3_BUCKET \
+                  --region $AWS_DEFAULT_REGION \
+                  --create-bucket-configuration LocationConstraint=$AWS_DEFAULT_REGION
+          fi
+
+      restartPolicy: Never
+  backoffLimit: 3
+{{- end }}
+{{- end }}

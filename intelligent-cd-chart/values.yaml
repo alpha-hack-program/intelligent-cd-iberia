@@ -1,0 +1,183 @@
+# Global configuration
+
+global:
+  namespace: intelligent-cd
+
+inference:
+  model: "my-model"
+  url: "https://URL:PORT/v1"
+  apiToken: ""
+  tlsVerify: "true"
+
+llamaStack:
+  name: llama-stack
+  # Optional: Override the default distribution name "rh-dev" with a custom image
+  # image: "quay.io/opendatahub/llama-stack:odh"
+  image: "quay.io/opendatahub/llama-stack:rhoai-v2.23-latest"
+  # image: "quay.io/opendatahub/llama-stack:rhoai-v2.25-latest"
+  # image: "quay.io/rh-ee-mmisiura/lls:run_moderation_lls_0.2.20"
+  # image: "quay.io/opendatahub/llama-stack:latest"
+  # image: "quay.io/aipcc/llama-stack/cpu-ubi9:latest"
+  # image: "quay.io/eformat/distribution-remote-vllm:0.2.15"
+  route:
+    enabled: true
+  opentelemetry:
+    enabled: true
+    bucketNameSuffix: "tempo"
+    otelServiceName: "llamastack"
+    telemetrySinks: "console,otel_trace" # 'console, sqlite, otel_trace, otel_metric'
+    otelExporterOtlpEndpoint: "http://otel-collector.otel.svc.cluster.local:4318"
+  websearch:
+    tavilyApiKey: ""
+
+# S3/MinIO bucket configuration (shared across components)
+s3Bucket:
+  connection:
+    secretName: minio-connection-secret
+    username: "minio"
+    password: "minio123"
+    endpoint: "minio.minio.svc.cluster.local"
+    port: '9000'
+    region: "none"
+    scheme: "http"
+
+pipelines:
+  enabled: true
+  namespaceSuffix: "-pipelines"
+
+RAG:
+  enabled: true
+  vector_db_id: "app-documentation"
+  git_repo: "https://gitlab.consulting.redhat.com/rh126-demojam/intelligent-cd-iberia.git"
+  git_branch: "main"
+  git_docs_path: "intelligent-cd-docs"
+  git_token: "<Token>"
+
+gradioUI:
+  name: gradio
+  replicaCount: 1
+
+  image:
+    repository: "quay.io/alopezme/intelligent-cd-gradio"
+    tag: "0.2.0" # latest
+    pullPolicy: Always
+
+  exposure:
+    type: "route" # Type of exposure: none, ingress, or route
+
+  config:
+    argocd:
+      base_url: "https://openshift-gitops-server.openshift-gitops:443"
+      api_token: "<Token>"
+    # github:
+    #   auth_token: "<Token>"
+    #   toolsets: "pull_requests, repos, issues"
+    #   readonly: "true"
+    form_tab:
+      # sampling_params: '{"temperature": 0.1, "max_tokens": 80000, "max_new_tokens": 80000, 
+      # "strategy": {"type": "greedy"} }'
+      # tools: "['mcp::servicenow', 'mcp::argocd', 'mcp::openshift', {'name': 'builtin::rag', 
+      # 'args': {'vector_db_ids': ['app-documentation'], 'top_k': 5}}]"
+      sampling_params:
+        temperature: 0.1
+        max_tokens: 300000
+        max_new_tokens: 300000
+        strategy:
+          type: "greedy"
+      tools:
+        - "mcp::openshift"
+        - name: "builtin::rag"
+          args:
+            vector_db_ids:
+              - "gitops-documentation"
+            top_k: 5
+      max_infer_iters: 100
+
+    chat_tab:
+      sampling_params:
+        temperature: 0.1
+        max_tokens: 8000
+        max_new_tokens: 8000
+        strategy:
+          type: "greedy"
+      tools:
+        - "mcp::servicenow"
+        - "mcp::argocd"
+        - "mcp::openshift"
+        - name: "builtin::rag"
+          args:
+            vector_db_ids:
+              - "app-documentation"
+            top_k: 5
+      max_infer_iters: 15
+
+  env:
+    LOG_LEVEL: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+  # Resources
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1500m"
+      memory: "2Gi"
+
+mcpServers:
+  ocpMcpServer:
+    name: ocp-mcp-server
+    replicaCount: 1
+    image:
+      repository: "quay.io/alopezme/kubernetes-mcp-server"
+      tag: "latest"
+
+    mcpServer:
+      port: 8080
+      args:
+        - "--sse-port"
+        - "8080"
+        - "--disable-destructive"
+        - "--log-level"
+        - "5"
+
+    serviceAccount:
+      create: true
+      # Service account name (required if create=true, optional if create=false for existing SA)
+      name: "ocp-mcp-server"
+
+    rbac:
+      clusterRole: "view" # cluster-admin / view / edit
+
+  argocdMcpServer:
+    name: argocd-mcp-server
+    replicaCount: 1
+    image:
+      repository: "quay.io/alopezme/argocd-mcp"
+      tag: "latest"
+    mcpServer:
+      # Port for the MCP server to listen on
+      port: 3000
+      # Add command to debug environment variables and start the server
+      args:
+        - "exec"
+        - "argocd-mcp@latest"
+        - "sse"
+    serviceAccount:
+      create: false
+      # Service account name (required if create=true, optional if create=false for existing SA)
+      name: default
+      
+  servicenowMcp:
+    name: servicenow-mcp
+    replicaCount: 1
+    image:
+      repository: "quay.io/alopezme/servicenow-mcp"
+      tag: "latest"
+    mcpServer:
+      port: 8080
+    env:
+      SERVICENOW_INSTANCE_URL: "https://devInstance.service-now.com"
+      SERVICENOW_USERNAME: "your-username"
+      SERVICENOW_PASSWORD: "your-password"
+      SERVICENOW_AUTH_TYPE: "basic"
+      SERVICENOW_TOOL_PACKAGE: "service_desk"

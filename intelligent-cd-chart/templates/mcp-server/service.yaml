@@ -1,0 +1,23 @@
+{{- range $name, $config := .Values.mcpServers }}
+{{- if $config.mcpServer }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $config.name }}
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    app: {{ $config.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $config.mcpServer.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ $config.name }}
+{{- end }}
+{{- end }}
