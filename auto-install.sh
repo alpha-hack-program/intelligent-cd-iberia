@@ -149,7 +149,7 @@ helm template intelligent-cd-chart \
 | oc apply -f -
 
 # # Option 2: ArgoCD Application
-# cat application-intelligent-cd.yaml | \
+# cat gitops-apps/application-intelligent-cd.yaml | \
 #   CLUSTER_DOMAIN=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
 #   LLS_ENDPOINT="http://llama-stack-service.intelligent-cd.svc.cluster.local:8321" \
 #   MODEL_NAME="$MODEL_NAME" \
