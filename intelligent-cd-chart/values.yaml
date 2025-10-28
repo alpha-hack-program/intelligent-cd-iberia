@@ -79,6 +79,7 @@ gradioUI:
           type: "greedy"
       tools:
         - "mcp::openshift"
+        - "mcp::github"
         - name: "builtin::rag"
           args:
             vector_db_ids:
@@ -97,6 +98,7 @@ gradioUI:
         - "mcp::servicenow"
         - "mcp::argocd"
         - "mcp::openshift"
+        - "mcp::github"
         - name: "builtin::rag"
           args:
             vector_db_ids:
