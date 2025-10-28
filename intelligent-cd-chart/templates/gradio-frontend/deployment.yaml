@@ -104,12 +104,12 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: github_pat
-            - name: GITHUB_TOOLSETS
+            - name: GITHUB_MCP_SERVER_TOOLSETS
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: github_toolsets
-            - name: GITHUB_READONLY
+            - name: GITHUB_MCP_SERVER_READONLY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
