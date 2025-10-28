@@ -126,9 +126,9 @@ echo "✅ Distributed Tracing Stack configured successfully!"
 #####################################
 # Step 6: Apply the Helm Chart
 #####################################
-
 echo -e "\n🚀 Step 6: Deploying Intelligent CD application..."
 
+# Create the secret for the GitHub MCP Server
 # Option 1: Helm template
 helm template intelligent-cd-chart \
 --set inference.model="$MODEL_NAME" \
@@ -137,7 +137,7 @@ helm template intelligent-cd-chart \
 --set gradioUI.config.argocd.base_url="$ARGOCD_BASE_URL" \
 --set gradioUI.config.argocd.api_token="$ARGOCD_API_TOKEN" \
 --set gradioUI.config.github.auth_token="$GITHUB_MCP_SERVER_AUTH_TOKEN" \
---set gradioUI.config.github.toolsets='$GITHUB_MCP_SERVER_TOOLSETS' \
+--set gradioUI.config.github.toolsets="$ESCAPED_GITHUB_TOOLSETS" \
 --set gradioUI.config.github.readonly="$GITHUB_MCP_SERVER_READONLY" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_INSTANCE_URL="$SERVICENOW_INSTANCE_URL" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_AUTH_TYPE="$SERVICENOW_AUTH_TYPE" \
