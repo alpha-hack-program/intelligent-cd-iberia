@@ -136,7 +136,7 @@ helm template intelligent-cd-chart \
 --set inference.apiToken="$MODEL_API_TOKEN" \
 --set gradioUI.config.argocd.base_url="$ARGOCD_BASE_URL" \
 --set gradioUI.config.argocd.api_token="$ARGOCD_API_TOKEN" \
---set gradioUI.config.github.auth_token="$GITHUB_PAT" \
+--set gradioUI.config.github.pat="$GITHUB_PAT" \
 --set gradioUI.config.github.toolsets="$GITHUB_MCP_SERVER_TOOLSETS" \
 --set gradioUI.config.github.readonly="$GITHUB_MCP_SERVER_READONLY" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_INSTANCE_URL="$SERVICENOW_INSTANCE_URL" \
