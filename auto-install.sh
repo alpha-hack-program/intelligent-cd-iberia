@@ -126,7 +126,6 @@ echo "✅ Distributed Tracing Stack configured successfully!"
 #####################################
 # Step 6: Apply the Helm Chart
 #####################################
-
 echo -e "\n🚀 Step 6: Deploying Intelligent CD application..."
 
 # Create the secret for the GitHub MCP Server
@@ -138,7 +137,7 @@ helm template intelligent-cd-chart \
 --set gradioUI.config.argocd.base_url="$ARGOCD_BASE_URL" \
 --set gradioUI.config.argocd.api_token="$ARGOCD_API_TOKEN" \
 --set gradioUI.config.github.auth_token="$GITHUB_MCP_SERVER_AUTH_TOKEN" \
---set gradioUI.config.github.toolsets='$GITHUB_MCP_SERVER_TOOLSETS' \
+--set gradioUI.config.github.toolsets="$ESCAPED_GITHUB_TOOLSETS" \
 --set gradioUI.config.github.readonly="$GITHUB_MCP_SERVER_READONLY" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_INSTANCE_URL="$SERVICENOW_INSTANCE_URL" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_AUTH_TYPE="$SERVICENOW_AUTH_TYPE" \
@@ -147,7 +146,7 @@ helm template intelligent-cd-chart \
 --set mcpServers.servicenowMcp.env.MCP_TOOL_PACKAGE="$SERVICENOW_MCP_TOOL_PACKAGE" \
 --set llamaStack.websearch.tavilyApiKey="$TAVILY_SEARCH_API_KEY" \
 --set mcpServers.githubMcp.env.GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PAT" \
---set mcpServers.githubMcp.env.GITHUB_TOOLSETS="$GITHUB_MCP_SERVER_TOOLSETS" \
+--set mcpServers.githubMcp.env.GITHUB_TOOLSETS=$(echo "$GITHUB_MCP_SERVER_TOOLSETS" | sed 's/,/\\,/g') \
 --set mcpServers.githubMcp.env.GITHUB_READONLY="$GITHUB_MCP_SERVER_READONLY" \
 --set RAG.git_token="$GITLAB_PAT" \
 | oc apply -f -
