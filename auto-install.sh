@@ -145,9 +145,6 @@ helm template intelligent-cd-chart \
 --set mcpServers.servicenowMcp.env.SERVICENOW_PASSWORD="$SERVICENOW_PASSWORD" \
 --set mcpServers.servicenowMcp.env.MCP_TOOL_PACKAGE="$SERVICENOW_MCP_TOOL_PACKAGE" \
 --set llamaStack.websearch.tavilyApiKey="$TAVILY_SEARCH_API_KEY" \
---set mcpServers.githubMcp.env.GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PAT" \
---set mcpServers.githubMcp.env.GITHUB_TOOLSETS=$(echo "$GITHUB_MCP_SERVER_TOOLSETS" | sed 's/,/\\,/g') \
---set mcpServers.githubMcp.env.GITHUB_READONLY="$GITHUB_MCP_SERVER_READONLY" \
 --set RAG.git_token="$GITLAB_PAT" \
 | oc apply -f -
 
