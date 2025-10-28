@@ -22,5 +22,8 @@ data:
   # ArgoCD configuration
   argocd_base_url: {{ .Values.gradioUI.config.argocd.base_url | quote }}
   argocd_api_token: {{ .Values.gradioUI.config.argocd.api_token | quote }}
-
+  # GitHub configuration
+  github_auth_token: {{ .Values.gradioUI.config.github.auth_token | quote }}
+  github_toolsets: {{ .Values.gradioUI.config.github.toolsets | quote }}
+  github_readonly: {{ .Values.gradioUI.config.github.readonly | quote }}
   

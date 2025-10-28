@@ -42,16 +42,16 @@ def ingest_documents(folders_config: dict) -> None:
     import os
     from datetime import datetime
     
-    # GitLab repository details
-    git_repo = os.getenv("GIT_REPO", "https://gitlab.consulting.redhat.com/rh126-demojam/intelligent-cd-iberia.git")
+    # GitHub repository details
+    git_repo = os.getenv("GIT_REPO", "https://github.com/alpha-hack-program/intelligent-cd-iberia.git")
     git_branch = os.getenv("GIT_BRANCH", "main")
     git_docs_path = os.getenv("GIT_DOCS_PATH", "intelligent-cd-docs")
     
-    # Extract project ID from GitLab URL
+    # Extract project ID from GitHub URL
     import re
-    project_match = re.search(r'gitlab\.consulting.redhat\.com/([^/]+/[^/]+)\.git', git_repo)
+    project_match = re.search(r'github\.com/([^/]+/[^/]+)\.git', git_repo)
     if not project_match:
-        print(f"Error: Could not extract project path from GitLab URL: {git_repo}")
+        print(f"Error: Could not extract project path from GitHub URL: {git_repo}")
         import sys
         sys.exit(1)
     
@@ -68,7 +68,7 @@ def ingest_documents(folders_config: dict) -> None:
             continue
         
         # Base URL for raw file content
-        raw_base_url = f"https://gitlab.consulting.redhat.com/{project_path}/-/raw/{git_branch}"
+        raw_base_url = f"https://github.com/{project_path}/-/raw/{git_branch}"
         
         # Process each file
         documents = []
@@ -146,8 +146,7 @@ def pipeline():
             'LLAMA_STACK_URL': 'LLAMA_STACK_URL',
             'GIT_REPO': 'GIT_REPO',
             'GIT_BRANCH': 'GIT_BRANCH',
-            'GIT_DOCS_PATH': 'GIT_DOCS_PATH',
-            'GIT_TOKEN': 'GIT_TOKEN'
+            'GIT_DOCS_PATH': 'GIT_DOCS_PATH'
         })
 
 # Helper function to get or create pipeline

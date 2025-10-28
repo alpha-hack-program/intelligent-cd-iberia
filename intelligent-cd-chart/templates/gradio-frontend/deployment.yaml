@@ -98,6 +98,22 @@ spec:
                 configMapKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: argocd_api_token
+            # GitHub configuration
+            - name: GITHUB_AUTH_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: github_auth_token
+            - name: GITHUB_TOOLSETS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: github_toolsets
+            - name: GITHUB_READONLY
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.gradioUI.name }}-config
+                  key: github_readonly
           livenessProbe:
             httpGet:
               path: "/"
