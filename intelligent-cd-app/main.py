@@ -43,7 +43,7 @@ def get_extra_headers_config() -> dict:
         }
     
     # Configure GitHub MCP server
-    github_auth_token = os.getenv("GITHUB_MCP_SERVER_AUTH_TOKEN")
+    github_auth_token = os.getenv("GITHUB_PAT")
     
     if github_auth_token:
         github_headers = {
