@@ -69,8 +69,7 @@ gradioUI:
     form_tab:
       # sampling_params: '{"temperature": 0.1, "max_tokens": 80000, "max_new_tokens": 80000, 
       # "strategy": {"type": "greedy"} }'
-      # tools: "['mcp::servicenow', 'mcp::argocd', 'mcp::openshift', {'name': 'builtin::rag', 
-      # 'args': {'vector_db_ids': ['app-documentation'], 'top_k': 5}}]"
+      # tools: "['mcp::servicenow', 'mcp::argocd', 'mcp::openshift', {'name': 'builtin::rag', 'args': {'vector_db_ids': ['app-documentation'], 'top_k': 5}}]"
       sampling_params:
         temperature: 0.1
         max_tokens: 300000
@@ -82,7 +81,7 @@ gradioUI:
         - "mcp::github"
         - name: "builtin::rag"
           args:
-            vector_db_ids:
+            vector_db_names:
               - "gitops-documentation"
             top_k: 5
       max_infer_iters: 100
@@ -90,21 +89,21 @@ gradioUI:
     chat_tab:
       sampling_params:
         temperature: 0.1
-        max_tokens: 8000
-        max_new_tokens: 8000
+        max_tokens: 300000
+        max_new_tokens: 300000
         strategy:
           type: "greedy"
       tools:
-        - "mcp::servicenow"
-        - "mcp::argocd"
+        # - "mcp::servicenow"
+        # - "mcp::argocd"
         - "mcp::openshift"
         - "mcp::github"
         - name: "builtin::rag"
           args:
-            vector_db_ids:
+            vector_db_names:
               - "app-documentation"
             top_k: 5
-      max_infer_iters: 15
+      max_infer_iters: 30
 
   env:
     LOG_LEVEL: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL

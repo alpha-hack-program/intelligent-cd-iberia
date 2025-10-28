@@ -35,7 +35,7 @@ def get_folders_config() -> dict:
 
 
 
-@dsl.component(base_image="python:3.13", packages_to_install=["llama-stack-client"])
+@dsl.component(base_image="python:3.13", packages_to_install=["llama-stack-client==0.2.23"])
 def ingest_documents(folders_config: dict) -> None:
     """Processes all folders (DB IDs) using the hardcoded configuration."""
     from llama_stack_client import RAGDocument, LlamaStackClient
@@ -99,32 +99,47 @@ def ingest_documents(folders_config: dict) -> None:
             timeout=180.0
         )
         
-        vector_db_id = folder_name
         
-        # Check if vector database exists, create if it doesn't
-        try:
-            client.vector_dbs.retrieve(vector_db_id=vector_db_id)
-            print(f"Vector database '{vector_db_id}' already exists")
-        except Exception as e:
-            print(f"Vector database '{vector_db_id}' does not exist, creating it...")
+        
+        # Check if vector database exists by listing all and filtering by name
+        # OpenAI does not provide mechanism to retrive by name 
+        # https://platform.openai.com/docs/api-reference/vector-stores/retrieve
+        # List all vector stores and find one with matching name
+        print(f"\nListing all vector stores:")
+        list_response = client.vector_stores.list()
+        vector_store_name = folder_name
+        vector_store_id = None
+        for vs in list_response:
+            print(f"  - ID: {vs.id}, Name: {vs.name}")
+            if vs.name == vector_store_name:
+                vector_store_id = vs.id
+        
+        # Create if doesn't exist
+        if vector_store_id:
+            print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}")
+        else:
+            print(f"Vector store '{vector_store_name}' not found, creating it...")
             
             # Create the vector database
-            client.vector_dbs.register(
-                vector_db_id=vector_db_id,
+            # https://github.com/llamastack/llama-stack-client-python/blob/release-0.2.22/api.md
+            response = client.vector_stores.create(
+                name=vector_store_name,
                 embedding_model="granite-embedding-125m",
                 embedding_dimension=768,
                 provider_id="milvus"
             )
-            print(f"Vector database '{vector_db_id}' created successfully")
+            # Response has 'id' attribute, not 'identifier'
+            vector_store_id = response.id
+            print(f"Vector store '{vector_store_name}' created successfully with ID: {vector_store_id}")
         
-        # Insert the documents
-        print(f"Ingesting {len(documents)} documents into vector database '{vector_db_id}'")
+        # Insert the documents using the identifier
+        print(f"Ingesting {len(documents)} documents into vector store '{vector_store_name}' (ID: {vector_store_id})")
         client.tool_runtime.rag_tool.insert(
             documents=documents,
-            vector_db_id=vector_db_id,
+            vector_db_id=vector_store_id,
             chunk_size_in_tokens=1024,
         )
-        print(f"Successfully ingested documents for DB ID '{folder_name}'")
+        print(f"Successfully ingested documents for '{vector_store_name}'")
     
     print(f"\n=== Completed processing all {len(folders_config)} folders ===")
 

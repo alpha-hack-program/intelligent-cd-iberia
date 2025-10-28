@@ -16,21 +16,37 @@ class RAGTestTab:
     def __init__(self, client: LlamaStackClient):
         self.client = client
         self.logger = get_logger("rag")
-        self.vector_db_id = os.getenv("RAG_TEST_TAB_VECTOR_DB_ID", "app-documentation")
+        self.vector_store_name = os.getenv("RAG_TEST_TAB_VECTOR_DB_NAME", "app-documentation")
+
+    def get_vector_store_id_by_name(self, name: str) -> str:
+        """Get vector store ID by name"""
+        try:
+            list_response = self.client.vector_stores.list()
+            for vs in list_response:
+                if vs.name == name:
+                    return vs.id
+            # If not found by name, assume it might be an ID already
+            return name
+        except Exception as e:
+            self.logger.warning(f"Error looking up vector store by name: {str(e)}")
+            return name
 
     def test_rag(self, query: str, database: str = None) -> str:
         """Test RAG functionality and report status in a user-friendly way"""
         
-        # Use provided database or fall back to default
-        vector_db_id = database.strip() if database and database.strip() else self.vector_db_id
+        # Use provided database name or fall back to default
+        vector_store_name = database.strip() if database and database.strip() else self.vector_store_name
+        
+        # Convert name to ID for querying
+        vector_store_id = self.get_vector_store_id_by_name(vector_store_name)
 
         self.logger.info(f"RAG Query:\n\n{query}")
-        self.logger.info(f"Using vector database: {vector_db_id}")
+        self.logger.info(f"Using vector store: {vector_store_name} (ID: {vector_store_id})")
 
         try:
             # Query documents
             result = self.client.tool_runtime.rag_tool.query(
-                vector_db_ids=[vector_db_id],
+                vector_db_ids=[vector_store_id],
                 content=query,
             )
             self.logger.debug(f"RAG Result:\n\n{result}")
@@ -43,7 +59,7 @@ class RAGTestTab:
 
             return (
                 f"✅ RAG Query executed successfully!\n\n"
-                f"**Database:** {vector_db_id}\n"
+                f"**Database:** {vector_store_name}\n"
                 f"**Query:**\n{query}\n\n"
                 f"**Result:**\n```\n{formatted_result}\n```"
             )
@@ -53,89 +69,89 @@ class RAGTestTab:
             self.logger.error(f"RAG Query failed: {str(e)}\n{tb}")
             return (
                 f"❌ RAG Query failed!\n\n"
-                f"**Database:** {vector_db_id}\n"
+                f"**Database:** {vector_store_name}\n"
                 f"**Query:**\n{query}\n\n"
                 f"**Error:**\n{str(e)}\n\n"
                 f"**Traceback:**\n```\n{tb}\n```"
             )
 
     def get_available_databases(self) -> list:
-        """Get list of available vector databases from Milvus"""
+        """Get list of available vector stores"""
         try:
-            vector_dbs = self.client.vector_dbs.list()
-            if vector_dbs:
+            list_response = self.client.vector_stores.list()
+            if list_response:
                 db_list = []
-                for db_item in vector_dbs:
-                    if hasattr(db_item, 'identifier'):
-                        db_list.append(db_item.identifier)
+                for vs in list_response:
+                    if hasattr(vs, 'name'):
+                        db_list.append(vs.name)
                     else:
-                        db_list.append(str(db_item))
+                        db_list.append(str(vs))
                 return db_list
             else:
-                return [self.vector_db_id]  # Return default if no databases found
+                return [self.vector_store_name]  # Return default if no databases found
         except Exception as e:
-            self.logger.error(f"Error listing vector databases: {str(e)}")
-            return [self.vector_db_id]  # Return default on error
+            self.logger.error(f"Error listing vector stores: {str(e)}")
+            return [self.vector_store_name]  # Return default on error
 
     def get_rag_status(self, database: str = None) -> str:
         """Get detailed RAG status information including providers, databases, and documents"""
         
-        # Use provided database or fall back to default
-        vector_db_id = database.strip() if database and database.strip() else self.vector_db_id
+        # Use provided database name or fall back to default
+        vector_store_name = database.strip() if database and database.strip() else self.vector_store_name
+        
+        # Convert name to ID for querying
+        vector_store_id = self.get_vector_store_id_by_name(vector_store_name)
         
         self.logger.info("Getting detailed RAG status information...")
-        self.logger.info(f"Using vector database: {vector_db_id}")
+        self.logger.info(f"Using vector store: {vector_store_name} (ID: {vector_store_id})")
         
         status_info = []
         status_info.append("=" * 60)
         status_info.append("📚 RAG STATUS REPORT")
         status_info.append("=" * 60)
-        status_info.append(f"**Target Database:** {vector_db_id}")
+        status_info.append(f"**Target Database:** {vector_store_name}")
         status_info.append("")
         
         try:
-            # 1. List all available vector databases (summary only)
-            status_info.append("🗄️ **Vector Databases:**")
+            # 1. List all available vector stores (with ID and Name)
+            status_info.append("🗄️ **Vector Stores:**")
             try:
-                vector_dbs = self.client.vector_dbs.list()
-                if vector_dbs:
-                    for db_item in vector_dbs:
-                        if hasattr(db_item, 'identifier'):
-                            db_id = db_item.identifier
-                            current_marker = " ✅ (Currently configured)" if db_id == vector_db_id else ""
-                            status_info.append(f"   • {db_id}{current_marker}")
-                        else:
-                            status_info.append(f"   • {str(db_item)}")
+                list_response = self.client.vector_stores.list()
+                if list_response:
+                    for vs in list_response:
+                        current_marker = " ✅ (Currently configured)" if vs.name == vector_store_name else ""
+                        status_info.append(f"   • Name: {vs.name}{current_marker}")
+                        status_info.append(f"     ID:   {vs.id}")
                 else:
-                    status_info.append("   • No vector databases found")
+                    status_info.append("   • No vector stores found")
             except Exception as e:
-                status_info.append(f"   ❌ Error listing vector databases: {str(e)}")
+                status_info.append(f"   ❌ Error listing vector stores: {str(e)}")
             
             status_info.append("")
             
-            # 2. Get detailed information about the configured vector database
-            if vector_db_id:
-                status_info.append(f"🔍 **Detailed Information for '{vector_db_id}':**")
+            # 2. Get detailed information about the configured vector store
+            if vector_store_id:
+                status_info.append(f"🔍 **Detailed Information for '{vector_store_name}':**")
                 
-                # Try to get database info using the correct API
+                # Try to get vector store info using the correct API
                 try:
-                    db_info = self.client.vector_dbs.retrieve(vector_db_id)
-                    if db_info:
-                        if hasattr(db_info, '__dict__'):
-                            for key, value in db_info.__dict__.items():
+                    store_info = self.client.vector_stores.retrieve(vector_store_id)
+                    if store_info:
+                        if hasattr(store_info, '__dict__'):
+                            for key, value in store_info.__dict__.items():
                                 if not key.startswith('_') and value is not None:
                                     status_info.append(f"   • {key.replace('_', ' ').title()}: {value}")
                         else:
-                            status_info.append(f"   • Database Info: {str(db_info)}")
+                            status_info.append(f"   • Vector Store Info: {str(store_info)}")
                     else:
-                        status_info.append("   • No detailed database information available")
+                        status_info.append("   • No detailed vector store information available")
                 except Exception as e:
-                    status_info.append(f"   ❌ Error getting database info: {str(e)}")
+                    status_info.append(f"   ❌ Error getting vector store info: {str(e)}")
                 
                 status_info.append("")
                 
                 # 3. Get document information with count and truncated titles
-                status_info.append(f"📄 **Documents in '{vector_db_id}':**")
+                status_info.append(f"📄 **Documents in '{vector_store_name}':**")
                 try:
                     # Try to get document information through queries
                     document_titles = []
@@ -152,7 +168,7 @@ class RAGTestTab:
                     for query in test_queries:
                         try:
                             result = self.client.tool_runtime.rag_tool.query(
-                                vector_db_ids=[vector_db_id],
+                                vector_db_ids=[vector_store_id],
                                 content=query,
                             )
                             if result:
@@ -177,7 +193,7 @@ class RAGTestTab:
                         try:
                             # Try to get a sample of content to estimate document count
                             sample_result = self.client.tool_runtime.rag_tool.query(
-                                vector_db_ids=[vector_db_id],
+                                vector_db_ids=[vector_store_id],
                                 content="sample content",
                             )
                             if sample_result:
@@ -210,14 +226,14 @@ class RAGTestTab:
                 
                 status_info.append("")
                 
-                # 4. Provider information (extracted from vector databases)
+                # 4. Provider information (extracted from vector stores)
                 status_info.append("🔧 **Provider Information:**")
                 try:
-                    vector_dbs = self.client.vector_dbs.list()
+                    list_response = self.client.vector_stores.list()
                     providers_found = set()
-                    for db_item in vector_dbs:
-                        if hasattr(db_item, 'provider_id'):
-                            providers_found.add(db_item.provider_id)
+                    for vs in list_response:
+                        if hasattr(vs, 'provider_id'):
+                            providers_found.add(vs.provider_id)
                     
                     if providers_found:
                         status_info.append("   • Configured Providers:")
@@ -235,7 +251,7 @@ class RAGTestTab:
                 status_info.append("🧪 **Functionality Test:**")
                 try:
                     test_result = self.client.tool_runtime.rag_tool.query(
-                        vector_db_ids=[vector_db_id],
+                        vector_db_ids=[vector_store_id],
                         content="test query",
                     )
                     if test_result:
@@ -247,7 +263,7 @@ class RAGTestTab:
                     status_info.append(f"   ❌ RAG query test failed: {str(e)}")
             
             else:
-                status_info.append("❌ No vector database ID configured")
+                status_info.append("❌ No vector store configured")
             
             status_info.append("")
             status_info.append("=" * 60)

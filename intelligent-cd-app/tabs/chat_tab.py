@@ -6,6 +6,7 @@ This module handles the main chat interface with LLM using ReAct methodology.
 
 import os
 import json
+import ast
 from typing import List, Dict
 from llama_stack_client import LlamaStackClient
 from llama_stack_client.lib.agents.react.agent import ReActAgent
@@ -35,8 +36,21 @@ class ChatTab:
         sampling_params = json.loads(sampling_params_str)
         
         # Load tools
-        tools_str = os.getenv("CHAT_TOOLS", "{}")
-        tools = json.loads(tools_str)
+        tools_str = os.getenv("CHAT_TOOLS", "[]")
+        
+        # Try to parse as JSON first, fall back to Python literal
+        try:
+            tools = json.loads(tools_str)
+        except json.JSONDecodeError:
+            try:
+                # Handle Python syntax with single quotes
+                tools = ast.literal_eval(tools_str)
+            except (ValueError, SyntaxError) as e:
+                self.logger.error(f"Failed to parse CHAT_TOOLS: {e}")
+                tools = []
+        
+        # Process tools to convert vector_db_names to vector_db_ids
+        tools = self._process_tools(tools)
         
         # Load model prompt
         model_prompt = os.getenv("CHAT_PROMPT", "You are a helpful assistant.")
@@ -47,6 +61,56 @@ class ChatTab:
         self.logger.debug(f"CHAT_PROMPT: {str(model_prompt)[:200]}...")
         
         return sampling_params, tools, model_prompt
+    
+    def _process_tools(self, tools: list) -> list:
+        """Process tools to convert vector_db_names to vector_db_ids"""
+        processed_tools = []
+        
+        for tool in tools:
+            # Handle string tools (like 'mcp::servicenow')
+            if isinstance(tool, str):
+                processed_tools.append(tool)
+                continue
+            
+            # Handle dict tools
+            if isinstance(tool, dict):
+                tool_copy = tool.copy()
+                
+                # Check if this tool has args with vector_db_names
+                if 'args' in tool_copy and isinstance(tool_copy['args'], dict):
+                    args = tool_copy['args'].copy()
+                    
+                    if 'vector_db_names' in args:
+                        names = args['vector_db_names']
+                        if isinstance(names, list):
+                            # Convert names to IDs
+                            ids = [self.get_vector_store_id_by_name(name) for name in names]
+                            # Replace vector_db_names with vector_db_ids
+                            args['vector_db_ids'] = ids
+                            del args['vector_db_names']
+                            self.logger.info(f"Converted vector_db_names {names} to vector_db_ids {ids}")
+                        
+                    tool_copy['args'] = args
+                
+                processed_tools.append(tool_copy)
+            else:
+                # Unknown type, keep as-is
+                processed_tools.append(tool)
+        
+        return processed_tools
+
+    def get_vector_store_id_by_name(self, name: str) -> str:
+        """Get vector store ID by name"""
+        try:
+            list_response = self.client.vector_stores.list()
+            for vs in list_response:
+                if vs.name == name:
+                    return vs.id
+            # If not found by name, assume it might be an ID already
+            return name
+        except Exception as e:
+            self.logger.warning(f"Error looking up vector store by name: {str(e)}")
+            return name
     
     def _initialize_agent(self) -> tuple[ReActAgent, str]:
         """Initialize agent and session that will be reused for the entire chat"""
@@ -90,6 +154,19 @@ class ChatTab:
         self.logger.info(f"✅ Session created: {session_id}")
         self.logger.info("=" * 60)
         return agent, session_id
+    
+    def get_config_display(self) -> str:
+        """Get formatted configuration for display in UI"""
+        config_lines = [
+            f"**Model:** {self.model}",
+            f"**Tools:** {self.tools_json}",
+            f"**Max iterations:** {self.max_infer_iters}",
+            f"**Temperature:** {self.sampling_params.get('temperature', 'default')}",
+            f"**Top P:** {self.sampling_params.get('top_p', 'default')}",
+            f"**Top K:** {self.sampling_params.get('top_k', 'default')}"
+        ]
+        
+        return "  \n".join(config_lines)
     
     def chat_completion(self, message: str, chat_history: List[Dict[str, str]]) -> tuple:
         """Handle chat with LLM using Agent → Session → Turn structure"""

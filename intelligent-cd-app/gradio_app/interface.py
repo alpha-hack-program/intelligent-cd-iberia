@@ -147,6 +147,22 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             color: #2e7d32 !important;
         }
         
+        /* Configuration display styling - small gray text */
+        .config-display {
+            font-size: 0.75em !important;
+            color: #666 !important;
+            padding: 5px 10px !important;
+            margin-top: 5px !important;
+            background-color: #f5f5f5 !important;
+            border-radius: 4px !important;
+            border: 1px solid #ddd !important;
+        }
+        
+        .config-display p {
+            margin: 0 !important;
+            line-height: 1.4 !important;
+        }
+        
         /* Button styling for Intelligent CD tab */
         .ai-generation-btn {
             background: #667eea !important;
@@ -335,6 +351,11 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                     elem_classes=["ai-generation-btn", "gitops-btn"]
                                 )
                         
+                        # Configuration display
+                        form_config_display = gr.Markdown(
+                            value=form_tab.get_config_display(),
+                            elem_classes=["config-display"]
+                        )
                     
                     # Chat Tab
                     with gr.TabItem("💬 Troubleshooting"):
@@ -369,6 +390,12 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                     with gr.Column(scale=2):
                                         send_btn = gr.Button("Send", variant="primary", size="md", scale=1)
                                         save_btn = gr.Button("Save", variant="primary", size="md", scale=1)
+                                
+                                # Configuration display below text input
+                                config_display = gr.Markdown(
+                                    value=chat_tab.get_config_display(),
+                                    elem_classes=["config-display"]
+                                )
                     
                     # MCP Test Tab
                     with gr.TabItem("🤖 MCP Test"):
@@ -430,7 +457,7 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                         with gr.Row():
                             rag_database_input = gr.Dropdown(
                                 choices=["Loading databases..."],
-                                label="Database",
+                                label="Database Name",
                                 value="",
                                 interactive=True,
                                 show_label=True,

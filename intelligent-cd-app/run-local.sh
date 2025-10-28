@@ -22,14 +22,14 @@ export ARGOCD_BASE_URL=$ARGOCD_BASE_URL
 export ARGOCD_API_TOKEN=$ARGOCD_API_TOKEN
 
 export CHAT_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 80000, "max_new_tokens": 80000, "strategy": {"type": "greedy"} }'
-export CHAT_TOOLS='["mcp::servicenow", "mcp::argocd", "mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_ids": ["app-documentation"], "top_k": 5}}]'
+export CHAT_TOOLS='["mcp::servicenow", "mcp::argocd", "mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_names": ["app-documentation"], "top_k": 5}}]'
 export CHAT_PROMPT="$(cat ../intelligent-cd-chart/conf/app/chat_prompt.md)"
 
 export FORM_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
-export FORM_TOOLS='["mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_ids": ["gitops-documentation"], "top_k": 5}}]'
+export FORM_TOOLS='["mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_names": ["gitops-documentation"], "top_k": 5}}]'
 export FORM_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
 
-export RAG_TEST_TAB_VECTOR_DB_ID='app-documentation'
+export RAG_TEST_TAB_VECTOR_DB_NAME='app-documentation'
 
 export FORM_MAX_INFER_ITERS=100
 export CHAT_MAX_INFER_ITERS=15

@@ -16,7 +16,7 @@ class SystemStatusTab:
         self.client = client
         self.llama_stack_url = llama_stack_url
         self.model = model
-        self.vector_db_id = os.getenv("RAG_TEST_TAB_VECTOR_DB_ID", "app-documentation")
+        self.vector_store_name = os.getenv("RAG_TEST_TAB_VECTOR_DB_NAME", "app-documentation")
         self.logger = get_logger("system")  
     
     def get_gradio_status(self) -> str:
@@ -85,26 +85,33 @@ class SystemStatusTab:
         
         # Check 1: Test connection by calling list()
         try:
-            rag_vector_dbs = self.client.vector_dbs.list()
+            list_response = self.client.vector_stores.list()
             rag_status.append("   • Connection: ✅ RAG backend responding")
         except Exception as e:
             rag_status.append("   • Connection: ❌ Failed to connect to RAG backend")
             rag_status.append(f"   • Error: {str(e)}")
             return rag_status
         
-        # Check 2: Show if self.vector_db_id is included in the list
-        vector_db_ids = [db.identifier for db in rag_vector_dbs] if rag_vector_dbs else []
-        if self.vector_db_id in vector_db_ids:
-            rag_status.append(f"   • Target DB: ✅ Vector DB '{self.vector_db_id}' found in list")
-        else:
-            rag_status.append(f"   • Target DB: ❌ Vector DB '{self.vector_db_id}' not found in list")
+        # Check 2: Check if self.vector_store_name is included in the list by name
+        vector_store_found = False
+        for vs in list_response:
+            if vs.name == self.vector_store_name:
+                vector_store_found = True
+                break
         
-        # Check 3: Show all identifiers from the list
-        if vector_db_ids:
-            rag_status.append(f"   • Available DBs: Found {len(vector_db_ids)} vector database(s)")
-            rag_status.append("   • DB Identifiers:")
-            for db_id in vector_db_ids:
-                rag_status.append(f"      - {db_id}")
+        if vector_store_found:
+            rag_status.append(f"   • Target DB: ✅ Vector Store '{self.vector_store_name}' found in list")
+        else:
+            rag_status.append(f"   • Target DB: ❌ Vector Store '{self.vector_store_name}' not found in list")
+        
+        # Check 3: Show all vector stores with ID and Name
+        vector_stores_list = list(list_response) if list_response else []
+        if vector_stores_list:
+            rag_status.append(f"   • Available DBs: Found {len(vector_stores_list)} vector database(s)")
+            rag_status.append("   • DB Details:")
+            for vs in vector_stores_list:
+                rag_status.append(f"      - Name: {vs.name}")
+                rag_status.append(f"        ID:   {vs.id}")
         else:
             rag_status.append("   • Available DBs: No vector databases found")
 
