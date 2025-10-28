@@ -52,7 +52,7 @@ gradioUI:
 
   image:
     repository: "quay.io/alopezme/intelligent-cd-gradio"
-    tag: "0.2.0" # latest
+    tag: "latest" # latest
     pullPolicy: Always
 
   exposure:
@@ -63,7 +63,7 @@ gradioUI:
       base_url: "https://openshift-gitops-server.openshift-gitops:443"
       api_token: "<Token>"
     github:
-      auth_token: "<Token>"
+      pat: "<Token>"
       toolsets: "pull_requests, repos, issues"
       readonly: "true"
     form_tab:

@@ -90,28 +90,28 @@ spec:
             # ArgoCD configuration
             - name: ARGOCD_BASE_URL
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: argocd_base_url
             - name: ARGOCD_API_TOKEN
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: argocd_api_token
             # GitHub configuration
-            - name: GITHUB_AUTH_TOKEN
+            - name: GITHUB_PAT
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
-                  key: github_auth_token
+                  key: github_pat
             - name: GITHUB_TOOLSETS
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: github_toolsets
             - name: GITHUB_READONLY
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: {{ .Values.gradioUI.name }}-config
                   key: github_readonly
           livenessProbe:
