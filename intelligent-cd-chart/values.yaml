@@ -12,13 +12,7 @@ inference:
 llamaStack:
   name: llama-stack
   # Optional: Override the default distribution name "rh-dev" with a custom image
-  # image: "quay.io/opendatahub/llama-stack:odh"
-  # image: "quay.io/opendatahub/llama-stack:rhoai-v2.23-latest"
   image: "quay.io/opendatahub/llama-stack:rhoai-v2.25-latest"
-  # image: "quay.io/rh-ee-mmisiura/lls:run_moderation_lls_0.2.20"
-  # image: "quay.io/opendatahub/llama-stack:latest"
-  # image: "quay.io/aipcc/llama-stack/cpu-ubi9:latest"
-  # image: "quay.io/eformat/distribution-remote-vllm:0.2.15"
   route:
     enabled: true
   opentelemetry:
@@ -48,10 +42,9 @@ pipelines:
 RAG:
   enabled: true
   vector_db_id: "app-documentation"
-  git_repo: "https://gitlab.consulting.redhat.com/rh126-demojam/intelligent-cd-iberia.git"
+  git_repo: "https://github.com/alpha-hack-program/intelligent-cd-iberia.git"
   git_branch: "main"
   git_docs_path: "intelligent-cd-docs"
-  git_token: "<Token>"
 
 gradioUI:
   name: gradio
@@ -69,10 +62,10 @@ gradioUI:
     argocd:
       base_url: "https://openshift-gitops-server.openshift-gitops:443"
       api_token: "<Token>"
-    # github:
-    #   auth_token: "<Token>"
-    #   toolsets: "pull_requests, repos, issues"
-    #   readonly: "true"
+    github:
+      auth_token: "<Token>"
+      toolsets: "pull_requests, repos, issues"
+      readonly: "true"
     form_tab:
       # sampling_params: '{"temperature": 0.1, "max_tokens": 80000, "max_new_tokens": 80000, 
       # "strategy": {"type": "greedy"} }'

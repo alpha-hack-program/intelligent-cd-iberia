@@ -1,4 +1,4 @@
-version: '2'
+version: 2
 image_name: rh
 apis:
 - agents
@@ -10,18 +10,55 @@ apis:
 - telemetry
 - tool_runtime
 - vector_io
+- files
 providers:
   inference:
-  - provider_id: vllm-inference
+  - provider_id: ${env.VLLM_URL:+vllm-inference}
     provider_type: remote::vllm
     config:
-      url: ${env.VLLM_URL:=http://localhost:8000/v1}
+      url: ${env.VLLM_URL:=}
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
+  - provider_id: ${env.AWS_ACCESS_KEY_ID:+bedrock}
+    provider_type: remote::bedrock
+    config:
+      aws_access_key_id: ${env.AWS_ACCESS_KEY_ID:=}
+      aws_secret_access_key: ${env.AWS_SECRET_ACCESS_KEY:=}
+      aws_session_token: ${env.AWS_SESSION_TOKEN:=}
+      region_name: ${env.AWS_DEFAULT_REGION:=}
+      profile_name: ${env.AWS_PROFILE:=}
+      total_max_attempts: ${env.AWS_MAX_ATTEMPTS:=}
+      retry_mode: ${env.AWS_RETRY_MODE:=}
+      connect_timeout: ${env.AWS_CONNECT_TIMEOUT:=60}
+      read_timeout: ${env.AWS_READ_TIMEOUT:=60}
+      session_ttl: ${env.AWS_SESSION_TTL:=3600}
   - provider_id: sentence-transformers
     provider_type: inline::sentence-transformers
     config: {}
+  - provider_id: ${env.WATSONX_API_KEY:+watsonx}
+    provider_type: remote::watsonx
+    config:
+      url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
+      api_key: ${env.WATSONX_API_KEY:=}
+      project_id: ${env.WATSONX_PROJECT_ID:=}
+  - provider_id: ${env.AZURE_API_KEY:+azure}
+    provider_type: remote::azure
+    config:
+      api_key: ${env.AZURE_API_KEY:=}
+      api_base: ${env.AZURE_API_BASE:=}
+      api_version: ${env.AZURE_API_VERSION:=}
+      api_type: ${env.AZURE_API_TYPE:=}
+  - provider_id: ${env.VERTEX_AI_PROJECT:+vertexai}
+    provider_type: remote::vertexai
+    config:
+      project: ${env.VERTEX_AI_PROJECT:=}
+      location: ${env.VERTEX_AI_LOCATION:=us-central1}
+  - provider_id: ${env.OPENAI_API_KEY:+openai}
+    provider_type: remote::openai
+    config:
+      api_key: ${env.OPENAI_API_KEY:=}
+      base_url: ${env.OPENAI_BASE_URL:=https://api.openai.com/v1}
   vector_io:
   - provider_id: milvus
     provider_type: inline::milvus
@@ -31,9 +68,24 @@ providers:
         type: sqlite
         namespace: null
         db_path: /opt/app-root/src/.llama/distributions/rh/milvus_registry.db
+  - provider_id: ${env.MILVUS_ENDPOINT:+milvus-remote}
+    provider_type: remote::milvus
+    config:
+      uri: ${env.MILVUS_ENDPOINT:=}
+      token: ${env.MILVUS_TOKEN:=}
+      secure: ${env.MILVUS_SECURE:=}
+      consistency_level: ${env.MILVUS_CONSISTENCY_LEVEL:=}
+      ca_pem_path: ${env.MILVUS_CA_PEM_PATH:=}
+      client_pem_path: ${env.MILVUS_CLIENT_PEM_PATH:=}
+      client_key_path: ${env.MILVUS_CLIENT_KEY_PATH:=}
+      kvstore:
+        type: sqlite
+        namespace: null
+        db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
+      module: llama_stack_provider_trustyai_fms==0.2.2
       config:
         orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
         ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
@@ -52,8 +104,9 @@ providers:
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
+    module: llama_stack_provider_lmeval==0.2.4
     config:
-        use_k8s: True
+        use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
         base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
   datasetio:
   - provider_id: huggingface
@@ -106,6 +159,14 @@ providers:
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
     config: {}
+  files:
+  - provider_id: meta-reference-files
+    provider_type: inline::localfs
+    config:
+      storage_dir: /opt/app-root/src/.llama/distributions/rh/files
+      metadata_store:
+        type: sqlite
+        db_path: /opt/app-root/src/.llama/distributions/rh/files_metadata.db
 metadata_store:
   type: sqlite
   db_path: /opt/app-root/src/.llama/distributions/rh/registry.db
@@ -135,4 +196,3 @@ tool_groups:
   provider_id: rag-runtime
 server:
   port: 8321
-external_providers_dir: /opt/app-root/src/.llama/providers.d

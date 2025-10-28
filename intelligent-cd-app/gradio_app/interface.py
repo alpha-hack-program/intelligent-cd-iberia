@@ -462,7 +462,7 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                     placeholder="Click a button above to see results here, chat with the AI to generate deployment manifests, or use the Save button to move the last chat response here for better clarity...",
                     lines=20,
                     max_lines=50,
-                    interactive=False,
+                    interactive=True,
                     show_copy_button=True,
                     show_label=True
                 )
@@ -478,9 +478,10 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             outputs=content_area
         )
         
-        # Apply YAML button functionality - show alert
+        # Apply YAML button functionality
         apply_yaml_btn.click(
-            fn=lambda: "🔧 Button 'Apply YAML' clicked",
+            fn=form_tab.apply_yaml,
+            inputs=[namespace_input, content_area],
             outputs=content_area
         )
         

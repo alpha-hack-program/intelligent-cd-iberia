@@ -58,7 +58,7 @@ echo "  Password: ${SERVICENOW_PASSWORD:0:3}..."
 echo "  Tool Package: ${SERVICENOW_MCP_TOOL_PACKAGE}"
 echo ""
 echo "🔧 GitHub MCP Server Configuration:"
-echo "  Auth Token: ${GITHUB_MCP_SERVER_AUTH_TOKEN:0:10}..."
+echo "  Auth Token: ${GITHUB_PAT:0:10}..."
 echo "  Toolsets: $GITHUB_MCP_SERVER_TOOLSETS"
 echo "  Readonly: $GITHUB_MCP_SERVER_READONLY"
 echo ""
@@ -136,8 +136,8 @@ helm template intelligent-cd-chart \
 --set inference.apiToken="$MODEL_API_TOKEN" \
 --set gradioUI.config.argocd.base_url="$ARGOCD_BASE_URL" \
 --set gradioUI.config.argocd.api_token="$ARGOCD_API_TOKEN" \
---set gradioUI.config.github.auth_token="$GITHUB_MCP_SERVER_AUTH_TOKEN" \
---set gradioUI.config.github.toolsets="$ESCAPED_GITHUB_TOOLSETS" \
+--set gradioUI.config.github.auth_token="$GITHUB_PAT" \
+--set gradioUI.config.github.toolsets="$GITHUB_MCP_SERVER_TOOLSETS" \
 --set gradioUI.config.github.readonly="$GITHUB_MCP_SERVER_READONLY" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_INSTANCE_URL="$SERVICENOW_INSTANCE_URL" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_AUTH_TYPE="$SERVICENOW_AUTH_TYPE" \
@@ -145,7 +145,6 @@ helm template intelligent-cd-chart \
 --set mcpServers.servicenowMcp.env.SERVICENOW_PASSWORD="$SERVICENOW_PASSWORD" \
 --set mcpServers.servicenowMcp.env.MCP_TOOL_PACKAGE="$SERVICENOW_MCP_TOOL_PACKAGE" \
 --set llamaStack.websearch.tavilyApiKey="$TAVILY_SEARCH_API_KEY" \
---set RAG.git_token="$GITLAB_PAT" \
 | oc apply -f -
 
 # # Option 2: ArgoCD Application
@@ -157,7 +156,7 @@ helm template intelligent-cd-chart \
 #   MODEL_API_TOKEN="$MODEL_API_TOKEN" \
 #   ARGOCD_BASE_URL="$ARGOCD_BASE_URL" \
 #   ARGOCD_API_TOKEN="$ARGOCD_API_TOKEN" \
-#   GITHUB_MCP_SERVER_AUTH_TOKEN="$GITHUB_MCP_SERVER_AUTH_TOKEN" \
+#   GITHUB_PAT="$GITHUB_PAT" \
 #   GITHUB_MCP_SERVER_TOOLSETS="$GITHUB_MCP_SERVER_TOOLSETS" \
 #   GITHUB_MCP_SERVER_READONLY="$GITHUB_MCP_SERVER_READONLY" \
 #   SERVICENOW_INSTANCE_URL="$SERVICENOW_INSTANCE_URL" \
@@ -166,7 +165,6 @@ helm template intelligent-cd-chart \
 #   SERVICENOW_PASSWORD="$SERVICENOW_PASSWORD" \
 #   SERVICENOW_MCP_TOOL_PACKAGE="$SERVICENOW_MCP_TOOL_PACKAGE" \
 #   TAVILY_SEARCH_API_KEY="$TAVILY_SEARCH_API_KEY" \
-#   GITLAB_PAT="$GITLAB_PAT" \
 #   envsubst | oc apply -f -
 
 echo "✅ Helm template applied successfully"

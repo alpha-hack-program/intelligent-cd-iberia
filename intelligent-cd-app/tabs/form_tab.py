@@ -6,6 +6,7 @@ This module handles the form-based resource generation functionality.
 
 import os
 import json
+import subprocess
 from typing import List
 from llama_stack_client import LlamaStackClient
 from llama_stack_client.lib.agents.react.agent import ReActAgent
@@ -194,28 +195,50 @@ class FormTab:
 
 
 
-    def apply_yaml(self, yaml_content: str) -> str:
+    def apply_yaml(self, namespace: str, yaml_content: str) -> str:
         """Apply YAML content to OpenShift cluster"""
         self.logger.info(f"Apply YAML request received:")
+        self.logger.info(f"  Namespace: {namespace}")
         self.logger.info(f"  YAML Content Length: {len(yaml_content)} characters")
+
+        try:
+            # Ensure namespace exists (delete and recreate if it does)
+            subprocess.run(['kubectl', 'delete', 'namespace', namespace], capture_output=True)
+            subprocess.run(['kubectl', 'create', 'namespace', namespace], capture_output=True)
+            
+            # The '-' argument tells 'kubectl apply' to read from standard input.
+            process = subprocess.Popen(
+                ['kubectl', 'apply', '-n', namespace, '-f', '-'],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            stdout, stderr = process.communicate(input=yaml_content)
+
+            if process.returncode == 0:
+                status_message = "**Apply YAML Function Logged Successfully!** ✅"
+                output = stdout
+            else:
+                status_message = "**Apply YAML Function Failed!** ❌"
+                output = f"Error: {stderr}"
+                
+        except Exception as e:
+            # Assuming kubectl will exist, handle any other unexpected errors
+            status_message = f"An unexpected error occurred: {e}"
+            output = ""
 
         result = f"""🔧 Apply YAML to OpenShift:
 
+**Namespace:** {namespace}
 **YAML Content Length:** {len(yaml_content)} characters
-**Status:** Placeholder function - not yet implemented
 
-**Next Steps:**
-- Parse and validate YAML content
-- Use MCP tools to apply resources to OpenShift cluster
-- Return status and applied resource information
-- Handle errors and provide feedback
+**Output:**
+{output}
 
-**YAML Content Preview:**
-```yaml
-{yaml_content[:500]}{'...' if len(yaml_content) > 500 else ''}
-```
-
-**Apply YAML Function Logged Successfully!** ✅"""
+**Status:** {status_message}
+"""
         
         return result
 
