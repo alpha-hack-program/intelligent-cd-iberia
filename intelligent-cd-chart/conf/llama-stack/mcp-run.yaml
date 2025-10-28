@@ -206,9 +206,9 @@ tool_groups:
   provider_id: model-context-protocol
   mcp_endpoint:
     uri: "${env.MCP_SERVICENOW_URL:=http://servicenow-mcp:8080}/sse"
-# - toolgroup_id: mcp::github
-#   provider_id: model-context-protocol
-#   mcp_endpoint:
-#     uri: "https://api.githubcopilot.com/mcp/"
+- toolgroup_id: mcp::github
+  provider_id: model-context-protocol
+  mcp_endpoint:
+    uri: "https://api.githubcopilot.com/mcp/"
 server:
   port: 8321
