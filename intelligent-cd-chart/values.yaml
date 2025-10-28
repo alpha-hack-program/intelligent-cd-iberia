@@ -13,8 +13,8 @@ llamaStack:
   name: llama-stack
   # Optional: Override the default distribution name "rh-dev" with a custom image
   # image: "quay.io/opendatahub/llama-stack:odh"
-  image: "quay.io/opendatahub/llama-stack:rhoai-v2.23-latest"
-  # image: "quay.io/opendatahub/llama-stack:rhoai-v2.25-latest"
+  # image: "quay.io/opendatahub/llama-stack:rhoai-v2.23-latest"
+  image: "quay.io/opendatahub/llama-stack:rhoai-v2.25-latest"
   # image: "quay.io/rh-ee-mmisiura/lls:run_moderation_lls_0.2.20"
   # image: "quay.io/opendatahub/llama-stack:latest"
   # image: "quay.io/aipcc/llama-stack/cpu-ubi9:latest"
