@@ -340,17 +340,37 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                     size="lg",
                                     elem_classes=["openshift-action-btn"]
                                 )
-                        
-                        # Full-width GitOps button
+
+                        # Full-width Push to GitHub button
                         with gr.Row():
                             with gr.Column(scale=1):
-                                make_gitops_btn = gr.Button(
-                                    "🔄 Make it GitOps", 
+                                push_github_btn = gr.Button(
+                                    "🔄 Push code to GitHub", 
                                     variant="primary", 
                                     size="lg",
                                     elem_classes=["ai-generation-btn", "gitops-btn"]
                                 )
                         
+                        # GitOps buttons row - parallel buttons similar to Generate Resources and Apply YAML
+                        with gr.Row():
+                            # Left - Generate ArgoCD App (AI Generation - Blue/Purple theme)
+                            with gr.Column(scale=3):
+                                generate_argocd_btn = gr.Button(
+                                    "📝 Generate ArgoCD App", 
+                                    variant="primary", 
+                                    size="lg",
+                                    elem_classes=["ai-generation-btn"]
+                                )
+                            
+                            # Right - Apply ArgoCD App (OpenShift Action - Green theme)
+                            with gr.Column(scale=1):
+                                apply_argocd_btn = gr.Button(
+                                    "🔧 Apply ArgoCD App", 
+                                    variant="secondary", 
+                                    size="lg",
+                                    elem_classes=["openshift-action-btn"]
+                                )
+                          
                         # Configuration display
                         form_config_display = gr.Markdown(
                             value=form_tab.get_config_display(),
@@ -525,9 +545,21 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             outputs=content_area
         )
         
-        # Make it GitOps button functionality - show alert
-        make_gitops_btn.click(
-            fn=lambda: "🔄 Button 'Make it GitOps' clicked",
+        # Generate ArgoCD App button functionality - show alert
+        generate_argocd_btn.click(
+            fn=lambda: "📝 Button 'Generate ArgoCD App' clicked",
+            outputs=content_area
+        )
+        
+        # Apply ArgoCD App button functionality - show alert
+        apply_argocd_btn.click(
+            fn=lambda: "🔧 Button 'Apply ArgoCD App' clicked",
+            outputs=content_area
+        )
+        
+        # Push code to GitHub button functionality - show alert
+        push_github_btn.click(
+            fn=lambda: "🔄 Button 'Push code to GitHub' clicked",
             outputs=content_area
         )
         
