@@ -3,5 +3,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - 01-operators
-  - 02-config
+  - 01-opentelemetry-operator
+  - 02-tempo-operator
+  - 03-coo-operator

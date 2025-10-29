@@ -71,9 +71,9 @@ echo ""
 #####################################
 
 echo -e "\n📡 Step 4: Creating MinIO storage..."
-cat minio.yaml | \
-  CLUSTER_DOMAIN=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
-  envsubst | oc apply -f -
+helm template components/minio \
+--set clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
+| oc apply -f -
 sleep 5
 
 echo "Waiting for MinIO pods to be ready..."
@@ -90,7 +90,7 @@ echo "✅ MinIO pods are ready!"
 #####################################
 
 echo -e "\n📡 Step 5: Configuring Distributed Tracing Stack..."
-oc apply -f ocp-dist-tracing-operators.yaml
+oc apply -k components/ocp-dist-tracing/01-operators/
 
 # 1. Wait for OpenTelemetry Operator
 echo -n "⏳ Waiting for OpenTelemetry Operator to be ready..."
@@ -118,7 +118,7 @@ echo "✅ Operators deployed successfully!"
 echo "Configuring operators..."
 
 
-oc apply -f ocp-dist-tracing-config.yaml
+oc apply -k components/ocp-dist-tracing/02-config/
 
 
 echo "✅ Distributed Tracing Stack configured successfully!"
@@ -189,10 +189,10 @@ echo "✅ All pods are ready!"
 
 echo -e "\n🗄️ Step 8: Deploying the LLS Playground..."
 
-cat lls-playground.yaml | \
-  CLUSTER_DOMAIN=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
-  LLS_ENDPOINT="http://llama-stack-service.intelligent-cd.svc.cluster.local:8321" \
-  envsubst | oc apply -f -
+helm template components/lls-playground \
+--set clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
+--set llsEndpoint="http://llama-stack-service.intelligent-cd.svc.cluster.local:8321" \
+| oc apply -f -
 
 #####################################
 # Step 9: Wait for route to be created
