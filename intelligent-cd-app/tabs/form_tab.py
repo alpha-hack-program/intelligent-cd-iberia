@@ -26,7 +26,6 @@ class FormTab:
 
         # Load configuration from environment variables
         self.sampling_params, self.tools_json, self.model_prompt = self._load_config()
-
     
     def _load_config(self) -> tuple[dict, list, str]:
         """Load all configuration from environment variables"""
@@ -176,22 +175,6 @@ class FormTab:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
     def generate_resources(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str]) -> str:
         """Generate Kubernetes resources based on form inputs"""
@@ -254,21 +237,6 @@ class FormTab:
         
         # Return the processed answer content instead of the full response
         return final_answer
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
