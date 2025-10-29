@@ -18,7 +18,7 @@ class RAGTestTab:
         self.logger = get_logger("rag")
         self.vector_store_name = os.getenv("RAG_TEST_TAB_VECTOR_DB_NAME", "app-documentation")
 
-    def get_vector_store_id_by_name(self, name: str) -> str:
+    def _get_vector_store_id_by_name(self, name: str) -> str:
         """Get vector store ID by name"""
         try:
             list_response = self.client.vector_stores.list()
@@ -38,7 +38,7 @@ class RAGTestTab:
         vector_store_name = database.strip() if database and database.strip() else self.vector_store_name
         
         # Convert name to ID for querying
-        vector_store_id = self.get_vector_store_id_by_name(vector_store_name)
+        vector_store_id = self._get_vector_store_id_by_name(vector_store_name)
 
         self.logger.info(f"RAG Query:\n\n{query}")
         self.logger.info(f"Using vector store: {vector_store_name} (ID: {vector_store_id})")
@@ -100,7 +100,7 @@ class RAGTestTab:
         vector_store_name = database.strip() if database and database.strip() else self.vector_store_name
         
         # Convert name to ID for querying
-        vector_store_id = self.get_vector_store_id_by_name(vector_store_name)
+        vector_store_id = self._get_vector_store_id_by_name(vector_store_name)
         
         self.logger.info("Getting detailed RAG status information...")
         self.logger.info(f"Using vector store: {vector_store_name} (ID: {vector_store_id})")
