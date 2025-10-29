@@ -45,75 +45,15 @@ spec:
               value: 'http://{{ .Values.llamaStack.name }}-service.{{ .Values.global.namespace }}:8321'
             - name: LOG_LEVEL
               value: "{{ .Values.gradioUI.env.LOG_LEVEL | default "INFO" }}"
-            - name: CHAT_PROMPT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: chat_prompt
-            - name: FORM_PROMPT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: form_prompt
-            # Form tab configuration
-            - name: FORM_SAMPLING_PARAMS
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: form_sampling_params
-            - name: FORM_TOOLS
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: form_tools
-            - name: FORM_MAX_INFER_ITERS
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: form_max_infer_iters
-            # Chat tab configuration
-            - name: CHAT_SAMPLING_PARAMS
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: chat_sampling_params
-            - name: CHAT_TOOLS
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: chat_tools
-            - name: CHAT_MAX_INFER_ITERS
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: chat_max_infer_iters
-            # ArgoCD configuration
-            - name: ARGOCD_BASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: argocd_base_url
-            - name: ARGOCD_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: argocd_api_token
-            # GitHub configuration
-            - name: GITHUB_PAT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: github_pat
-            - name: GITHUB_MCP_SERVER_TOOLSETS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: github_toolsets
-            - name: GITHUB_MCP_SERVER_READONLY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gradioUI.name }}-config
-                  key: github_readonly
+          envFrom:
+            # Mount all ConfigMap entries as environment variables
+            # ConfigMap keys must match env var names (e.g., CHAT_PROMPT, FORM_GENERATE_RESOURCES_PROMPT, etc.)
+            - configMapRef:
+                name: {{ .Values.gradioUI.name }}-config
+            # Mount all Secret entries as environment variables
+            # Secret keys must match env var names (e.g., ARGOCD_BASE_URL, GITHUB_PAT, etc.)
+            - secretRef:
+                name: {{ .Values.gradioUI.name }}-config
           livenessProbe:
             httpGet:
               path: "/"

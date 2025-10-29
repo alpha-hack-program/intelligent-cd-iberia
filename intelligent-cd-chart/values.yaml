@@ -67,24 +67,69 @@ gradioUI:
       toolsets: "pull_requests, repos, issues"
       readonly: "true"
     form_tab:
-      # sampling_params: '{"temperature": 0.1, "max_tokens": 80000, "max_new_tokens": 80000, 
-      # "strategy": {"type": "greedy"} }'
-      # tools: "['mcp::servicenow', 'mcp::argocd', 'mcp::openshift', {'name': 'builtin::rag', 'args': {'vector_db_ids': ['app-documentation'], 'top_k': 5}}]"
-      sampling_params:
-        temperature: 0.1
-        max_tokens: 300000
-        max_new_tokens: 300000
-        strategy:
-          type: "greedy"
-      tools:
-        - "mcp::openshift"
-        - "mcp::github"
-        - name: "builtin::rag"
-          args:
-            vector_db_names:
-              - "gitops-documentation"
-            top_k: 5
-      max_infer_iters: 100
+      # Global form configuration
+      max_infer_iters: 50
+      
+      # Step 1: Generate Resources
+      generate_resources:
+        sampling_params:
+          temperature: 0.1
+          max_tokens: 300000
+          max_new_tokens: 300000
+          strategy:
+            type: "greedy"
+        tools:
+          - "mcp::openshift"
+          - name: "builtin::rag"
+            args:
+              vector_db_names:
+                - "gitops-documentation"
+              top_k: 5
+      
+      # Step 2: Generate Helm
+      generate_helm:
+        sampling_params:
+          temperature: 0.1
+          max_tokens: 300000
+          max_new_tokens: 300000
+          strategy:
+            type: "greedy"
+        tools:
+          # - "mcp::openshift"
+          - name: "builtin::rag"
+            args:
+              vector_db_names:
+                - "gitops-documentation"
+              top_k: 5
+      
+      # Step 3: Push GitHub
+      push_github:
+        sampling_params:
+          temperature: 0.1
+          max_tokens: 300000
+          max_new_tokens: 300000
+          strategy:
+            type: "greedy"
+        tools:
+          - "mcp::github"
+          # - "mcp::openshift"
+      
+      # Step 4: Generate ArgoCD
+      generate_argocd:
+        sampling_params:
+          temperature: 0.1
+          max_tokens: 300000
+          max_new_tokens: 300000
+          strategy:
+            type: "greedy"
+        tools:
+          # - "mcp::argocd"
+          - "mcp::openshift"
+          - name: "builtin::rag"
+            args:
+              vector_db_names:
+                - "gitops-documentation"
+              top_k: 5
 
     chat_tab:
       sampling_params:

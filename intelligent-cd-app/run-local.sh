@@ -2,6 +2,8 @@
 
 set -e
 
+source ../.env
+
 ARGOCD_BASE_URL=$(oc get route openshift-gitops-server -n openshift-gitops --template='https://{{ .spec.host }}')
 ARGOCD_ADMIN_USERNAME=admin
 ARGOCD_ADMIN_PASSWORD=$(oc get secret openshift-gitops-cluster -n openshift-gitops --template='{{index .data "admin.password"}}' | base64 -d)
@@ -21,17 +23,42 @@ echo "ARGOCD_API_TOKEN: ${ARGOCD_API_TOKEN:0:10}..."
 export ARGOCD_BASE_URL=$ARGOCD_BASE_URL
 export ARGOCD_API_TOKEN=$ARGOCD_API_TOKEN
 
-export CHAT_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 80000, "max_new_tokens": 80000, "strategy": {"type": "greedy"} }'
-export CHAT_TOOLS='["mcp::servicenow", "mcp::argocd", "mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_names": ["app-documentation"], "top_k": 5}}]'
+# Chat tab configuration
+export CHAT_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
+export CHAT_TOOLS='["mcp::openshift", "mcp::github", {"name": "builtin::rag", "args": {"vector_db_names": ["app-documentation"], "top_k": 5}}]'
 export CHAT_PROMPT="$(cat ../intelligent-cd-chart/conf/app/chat_prompt.md)"
+export CHAT_MAX_INFER_ITERS=30
 
-export FORM_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
-export FORM_TOOLS='["mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_names": ["gitops-documentation"], "top_k": 5}}]'
-export FORM_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+# Step 1: Generate Resources
+export FORM_GENERATE_RESOURCES_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
+export FORM_GENERATE_RESOURCES_TOOLS='["mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_names": ["gitops-documentation"], "top_k": 5}}]'
+export FORM_GENERATE_RESOURCES_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_resources_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
 
+# Step 2: Generate Helm
+export FORM_GENERATE_HELM_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
+export FORM_GENERATE_HELM_TOOLS='[{"name": "builtin::rag", "args": {"vector_db_names": ["gitops-documentation"], "top_k": 5}}]'
+export FORM_GENERATE_HELM_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_helm_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+
+# Step 3: Push GitHub
+export FORM_PUSH_GITHUB_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
+export FORM_PUSH_GITHUB_TOOLS='["mcp::github"]'
+export FORM_PUSH_GITHUB_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_push_github_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+
+# Step 4: Generate ArgoCD
+export FORM_GENERATE_ARGOCD_SAMPLING_PARAMS='{"temperature": 0.1, "max_tokens": 300000, "max_new_tokens": 300000, "strategy": {"type": "greedy"} }'
+export FORM_GENERATE_ARGOCD_TOOLS='["mcp::openshift", {"name": "builtin::rag", "args": {"vector_db_names": ["gitops-documentation"], "top_k": 5}}]'
+export FORM_GENERATE_ARGOCD_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_argocd_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+
+# Global form configuration
+export FORM_MAX_INFER_ITERS=50
+
+# RAG test tab configuration
 export RAG_TEST_TAB_VECTOR_DB_NAME='app-documentation'
 
-export FORM_MAX_INFER_ITERS=100
-export CHAT_MAX_INFER_ITERS=15
+# GitHub MCP Server Configuration
+export GITHUB_PAT=$GITHUB_PAT
+# Options: https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md#remote-mcp-toolsets
+export GITHUB_MCP_SERVER_TOOLSETS=$(echo "$GITHUB_MCP_SERVER_TOOLSETS" | sed 's/\\//g')
+export GITHUB_MCP_SERVER_READONLY=$GITHUB_MCP_SERVER_READONLY
 
 LOG_LEVEL='DEBUG' gradio main.py
