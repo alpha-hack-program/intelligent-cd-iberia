@@ -84,7 +84,7 @@ class ChatTab:
                         names = args['vector_db_names']
                         if isinstance(names, list):
                             # Convert names to IDs
-                            ids = [self.get_vector_store_id_by_name(name) for name in names]
+                            ids = [self._get_vector_store_id_by_name(name) for name in names]
                             # Replace vector_db_names with vector_db_ids
                             args['vector_db_ids'] = ids
                             del args['vector_db_names']
@@ -99,7 +99,7 @@ class ChatTab:
         
         return processed_tools
 
-    def get_vector_store_id_by_name(self, name: str) -> str:
+    def _get_vector_store_id_by_name(self, name: str) -> str:
         """Get vector store ID by name"""
         try:
             list_response = self.client.vector_stores.list()
