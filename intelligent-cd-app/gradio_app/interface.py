@@ -535,7 +535,7 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
         # Generate Helm button functionality
         generate_helm_btn.click(
             fn=form_tab.generate_helm,
-            inputs=[namespace_input, helm_chart_input, workload_type_selector, supporting_resources_selector],
+            inputs=[namespace_input, helm_chart_input, workload_type_selector, supporting_resources_selector, content_area],
             outputs=content_area
         )
         

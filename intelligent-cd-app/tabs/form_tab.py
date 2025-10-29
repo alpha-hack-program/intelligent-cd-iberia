@@ -24,17 +24,42 @@ class FormTab:
         self.model = model
         self.max_infer_iters = int(os.getenv("FORM_MAX_INFER_ITERS", "15"))
 
-        # Load configuration from environment variables
-        self.sampling_params, self.tools_json, self.model_prompt = self._load_config()
+        # Load step-specific configurations from environment variables
+        self.logger.info("Loading step-specific configurations...")
+        self.config_generate_resources = self._load_step_config("GENERATE_RESOURCES")
+        self.config_generate_helm = self._load_step_config("GENERATE_HELM")
+        self.config_push_github = self._load_step_config("PUSH_GITHUB")
+        self.config_generate_argocd = self._load_step_config("GENERATE_ARGOCD")
+        
+        # Initialize all agents and sessions once during initialization
+        self.logger.info("Initializing all ReActAgents for form tab steps...")
+        self.agent_resources, self.session_id_resources = self._initialize_agent("generate_resources", self.config_generate_resources)
+        self.agent_helm, self.session_id_helm = self._initialize_agent("generate_helm", self.config_generate_helm)
+        self.agent_github, self.session_id_github = self._initialize_agent("push_github", self.config_push_github)
+        self.agent_argocd, self.session_id_argocd = self._initialize_agent("generate_argocd_app", self.config_generate_argocd)
+        self.logger.info("✅ All ReActAgents initialized successfully")
     
-    def _load_config(self) -> tuple[dict, list, str]:
-        """Load all configuration from environment variables"""
+    def _load_step_config(self, step_key: str) -> dict:
+        """Load step-specific configuration from environment variables
+        
+        Args:
+            step_key: The step identifier (e.g., "GENERATE_RESOURCES", "GENERATE_HELM", etc.)
+            
+        Returns:
+            Dictionary with keys: sampling_params, tools, prompt
+        """
+        env_prefix = f"FORM_{step_key}_"
+        
         # Load sampling parameters
-        sampling_params_str = os.getenv("FORM_SAMPLING_PARAMS", "{}")
-        sampling_params = json.loads(sampling_params_str)
+        sampling_params_str = os.getenv(f"{env_prefix}SAMPLING_PARAMS", "{}")
+        try:
+            sampling_params = json.loads(sampling_params_str)
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"Failed to parse {env_prefix}SAMPLING_PARAMS: {e}, using defaults")
+            sampling_params = {}
         
         # Load tools
-        tools_str = os.getenv("FORM_TOOLS", "[]")
+        tools_str = os.getenv(f"{env_prefix}TOOLS", "[]")
         
         # Try to parse as JSON first, fall back to Python literal
         try:
@@ -44,21 +69,34 @@ class FormTab:
                 # Handle Python syntax with single quotes
                 tools = ast.literal_eval(tools_str)
             except (ValueError, SyntaxError) as e:
-                self.logger.error(f"Failed to parse FORM_TOOLS: {e}")
+                self.logger.error(f"Failed to parse {env_prefix}TOOLS: {e}")
                 tools = []
         
         # Process tools to convert vector_db_names to vector_db_ids
         tools = self._process_tools(tools)
         
         # Load model prompt
-        model_prompt = os.getenv("FORM_PROMPT", "You are a helpful assistant.")
+        prompt_file = os.getenv(f"{env_prefix}PROMPT_FILE", "")
+        if prompt_file:
+            try:
+                with open(prompt_file, 'r') as f:
+                    model_prompt = f.read()
+            except Exception as e:
+                self.logger.warning(f"Failed to read prompt file {prompt_file}: {e}, using env var or default")
+                model_prompt = os.getenv(f"{env_prefix}PROMPT", "You are a helpful assistant.")
+        else:
+            model_prompt = os.getenv(f"{env_prefix}PROMPT", "You are a helpful assistant.")
         
         # Debug logging
-        self.logger.debug(f"FORM_SAMPLING_PARAMS: {sampling_params}")
-        self.logger.debug(f"FORM_TOOLS: {tools}")
-        self.logger.debug(f"FORM_PROMPT: {str(model_prompt)[:200]}...")
+        self.logger.debug(f"{env_prefix}SAMPLING_PARAMS: {sampling_params}")
+        self.logger.debug(f"{env_prefix}TOOLS: {tools}")
+        self.logger.debug(f"{env_prefix}PROMPT: {str(model_prompt)[:200]}...")
         
-        return sampling_params, tools, model_prompt
+        return {
+            "sampling_params": sampling_params,
+            "tools": tools,
+            "prompt": model_prompt
+        }
     
     def _process_tools(self, tools: list) -> list:
         """Process tools to convert vector_db_names to vector_db_ids"""
@@ -114,33 +152,45 @@ class FormTab:
         """Get formatted configuration for display in UI"""
         config_lines = [
             f"**Model:** {self.model}",
-            f"**Tools:** {self.tools_json}",
             f"**Max iterations:** {self.max_infer_iters}",
-            f"**Temperature:** {self.sampling_params.get('temperature', 'default')}",
-            f"**Top P:** {self.sampling_params.get('top_p', 'default')}",
-            f"**Top K:** {self.sampling_params.get('top_k', 'default')}"
+            f"\n**Step 1 - Generate Resources:**",
+            f"  - Tools: {self.config_generate_resources['tools']}",
+            f"  - Temperature: {self.config_generate_resources['sampling_params'].get('temperature', 'default')}",
+            f"\n**Step 2 - Generate Helm:**",
+            f"  - Tools: {self.config_generate_helm['tools']}",
+            f"  - Temperature: {self.config_generate_helm['sampling_params'].get('temperature', 'default')}",
+            f"\n**Step 3 - Push GitHub:**",
+            f"  - Tools: {self.config_push_github['tools']}",
+            f"  - Temperature: {self.config_push_github['sampling_params'].get('temperature', 'default')}",
+            f"\n**Step 4 - Generate ArgoCD:**",
+            f"  - Tools: {self.config_generate_argocd['tools']}",
+            f"  - Temperature: {self.config_generate_argocd['sampling_params'].get('temperature', 'default')}",
         ]
         
         return "  \n".join(config_lines)
 
-    def _initialize_agent(self, ocp_namespace: str, helm_chart_name: str, ocp_resource_type: List[str]) -> tuple[ReActAgent, str]:
-        """Initialize agent and session that will be reused for the entire chat"""
-
-        formatted_prompt = self.model_prompt
-        # formatted_prompt = self.model_prompt.format(
-        #     tool_groups=self.tools_json,
-        #     ocp_namespace=ocp_namespace,
-        #     helm_chart_name=helm_chart_name,
-        #     ocp_resource_type=ocp_resource_type
-        # )
+    def _initialize_agent(self, step_name: str, config: dict, session_name: str = None) -> tuple[ReActAgent, str]:
+        """Initialize agent and session for a specific step
+        
+        Args:
+            step_name: Name of the step (e.g., "generate_resources", "generate_helm", etc.)
+            config: Dictionary with keys: sampling_params, tools, prompt
+            session_name: Optional custom session name. If not provided, uses step_name
+            
+        Returns:
+            Tuple of (agent, session_id)
+        """
+        formatted_prompt = config["prompt"]
+        sampling_params = config["sampling_params"]
+        tools = config["tools"]
 
         # Log agent creation details
         self.logger.info("=" * 60)
-        self.logger.info("Creating Form Tab ReActAgent")
+        self.logger.info(f"Creating ReActAgent for step: {step_name}")
         self.logger.info("=" * 60)
         self.logger.info(f"Model: {self.model}")
-        self.logger.info(f"Toolgroups available ({len(self.tools_json)}): {self.tools_json}")
-        self.logger.info(f"Sampling params: {self.sampling_params}")
+        self.logger.info(f"Toolgroups available ({len(tools)}): {tools}")
+        self.logger.info(f"Sampling params: {sampling_params}")
         self.logger.info(f"Max infer iters: {self.max_infer_iters}")
         self.logger.info(f"Formatted prompt: {formatted_prompt[:100]}")
 
@@ -148,20 +198,22 @@ class FormTab:
             client=self.client,
             model=self.model,
             instructions=formatted_prompt,
-            tools=self.tools_json,
+            tools=tools,
             tool_config={"tool_choice": "auto"},  # Ensure tools are actually executed
             response_format={
                 "type": "json_schema",
                 "json_schema": ReActOutput.model_json_schema(),
             },
-            sampling_params=self.sampling_params,
+            sampling_params=sampling_params,
             max_infer_iters=self.max_infer_iters
         )
         
         self.logger.info("✅ ReActAgent created successfully")
 
         # Create session for the agent
-        session = agent.create_session(session_name="OCP_Chat_Session")
+        if session_name is None:
+            session_name = f"{step_name}_session"
+        session = agent.create_session(session_name=session_name)
         
         # Handle both object with .id attribute and direct string return
         if hasattr(session, 'id'):
@@ -172,30 +224,47 @@ class FormTab:
         self.logger.info(f"✅ Session created: {session_id}")
         self.logger.info("=" * 60)
         return agent, session_id
+    
+    def _extract_answer_content(self, response) -> str:
+        """Extract answer content from agent response"""
+        response_content = response.output_message.content
+        final_answer = ""
+        
+        if response_content and isinstance(response_content, str):
+            try:
+                # Try to parse as JSON to extract just the answer part
+                content_json = json.loads(response_content)
+                if 'answer' in content_json and content_json['answer']:
+                    final_answer = content_json['answer']
+                else:
+                    # If no answer field, use the full content
+                    final_answer = response_content
+            except json.JSONDecodeError:
+                # If not JSON, use the content as-is
+                final_answer = response_content
+            
+            # Replace \n with actual line breaks
+            final_answer = final_answer.replace('\\n', '\n')
+        
+        return final_answer
 
 
 
     
     def generate_resources(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str]) -> str:
-        """Generate Kubernetes resources based on form inputs"""
-        self.logger.info(f"Form submission received:")
+        """Step 1: Generate Kubernetes resources by taking resources from OCP and trimming unnecessary fields"""
+        self.logger.info(f"Step 1 - Generate Resources:")
         self.logger.info(f"  Namespace: {namespace}")
         self.logger.info(f"  Helm Chart: {helm_chart}")
         self.logger.info(f"  Workload Type: {workload_type}")
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
 
-        # Combine workload type and supporting resources for backward compatibility
-        resource_types = [workload_type] + supporting_resources if workload_type else supporting_resources
-
-        # Initialize agent and session for the entire chat
-        agent, session_id = self._initialize_agent(namespace, helm_chart, resource_types)
-
-        # Execute agent turn with simple message
-        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Format with '---' separators for oc apply."
+        # Use pre-initialized agent for step 1
+        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Remove unnecessary fields and format with '---' separators for oc apply."
         
-        response = agent.create_turn(
+        response = self.agent_resources.create_turn(
             messages=[{"role": "user", "content": message}],
-            session_id=session_id,
+            session_id=self.session_id_resources,
             stream=False,
         )
         
@@ -212,30 +281,12 @@ class FormTab:
             for i, step in enumerate(response.steps):
                 self.logger.debug(f"Step {i}: {step}")
         
-        # Extract answer part from the last message and fix YAML formatting
-        response_content = response.output_message.content
-        final_answer = ""
+        # Extract answer content
+        final_answer = self._extract_answer_content(response)
         
-        if response_content and isinstance(response_content, str):
-            try:
-                # Try to parse as JSON to extract just the answer part
-                import json
-                content_json = json.loads(response_content)
-                if 'answer' in content_json and content_json['answer']:
-                    final_answer = content_json['answer']
-                else:
-                    # If no answer field, use the full content
-                    final_answer = response_content
-            except json.JSONDecodeError:
-                # If not JSON, use the content as-is
-                final_answer = response_content
-            
-            # Replace \n with actual line breaks
-            final_answer = final_answer.replace('\\n', '\n')
+        self.logger.info(f"✅ Step 1 completed. Generated {len(final_answer)} characters of YAML")
         
-        print(final_answer)
-        
-        # Return the processed answer content instead of the full response
+        # Return the processed answer content
         return final_answer
 
     def apply_yaml(self, namespace: str, yaml_content: str) -> str:
@@ -274,17 +325,47 @@ class FormTab:
 
         return f"🔧 Apply YAML to OpenShift:\n\n**Namespace:** {namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
 
-    def generate_helm(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str]) -> str:
-        """Generate Helm chart based on form inputs"""
-        self.logger.info(f"Generate Helm request received:")
+    def generate_helm(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str], resources_yaml: str = "") -> str:
+        """Step 2: Generate Helm chart by taking resources and creating a Helm chart structure"""
+        self.logger.info(f"Step 2 - Generate Helm Chart:")
         self.logger.info(f"  Namespace: {namespace}")
         self.logger.info(f"  Helm Chart: {helm_chart}")
         self.logger.info(f"  Workload Type: {workload_type}")
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
+        self.logger.info(f"  Resources YAML Length: {len(resources_yaml) if resources_yaml else 0} characters")
 
-        # Combine workload type and supporting resources for display
-        all_resources = [workload_type] + supporting_resources if workload_type else supporting_resources
-        return f"📦 Generate Helm Chart:\n\n**Namespace:** {namespace}\n**Helm Chart:** {helm_chart if helm_chart else 'None (will generate new chart)'}\n**Workload Type:** {workload_type if workload_type else 'None'}\n**Supporting Resources:** {', '.join(supporting_resources) if supporting_resources else 'None'}\n**All Resources:** {', '.join(all_resources) if all_resources else 'None'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Generate Helm chart structure\n- Create templates for selected resource types\n- Generate values.yaml with namespace configuration\n- Package chart and provide download/instructions\n\n**Generate Helm Function Logged Successfully!** ✅"
+        # Use pre-initialized agent for step 2
+        message = f"""Create a Helm chart from the following Kubernetes resources:
+        
+Namespace: {namespace}
+Helm Chart Name: {helm_chart if helm_chart else 'generated-chart'}
+Workload Type: {workload_type}
+Supporting Resources: {', '.join(supporting_resources) if supporting_resources else 'None'}
+
+Resources YAML:
+{resources_yaml if resources_yaml else 'No resources provided'}
+
+Generate a complete Helm chart structure with:
+- Chart.yaml with appropriate metadata
+- values.yaml with configurable values (including namespace)
+- Templates directory with all resource templates converted from the YAML above
+- Proper templating using Helm syntax ({{{{ .Values.* }}}})
+- README.md with chart description and usage
+"""
+        
+        response = self.agent_helm.create_turn(
+            messages=[{"role": "user", "content": message}],
+            session_id=self.session_id_helm,
+            stream=False,
+        )
+        
+        # Extract answer content
+        helm_chart_content = self._extract_answer_content(response)
+        
+        self.logger.info(f"✅ Step 2 completed. Generated Helm chart ({len(helm_chart_content)} characters)")
+        
+        # Return the Helm chart content
+        return helm_chart_content
 
     def apply_helm(self, helm_chart: str, namespace: str, values: str = "") -> str:
         """Apply Helm chart to OpenShift cluster"""
@@ -294,25 +375,108 @@ class FormTab:
         self.logger.info(f"  Values: {values if values else 'None'}")
         return f"🚀 Apply Helm Chart to OpenShift:\n\n**Helm Chart:** {helm_chart}\n**Namespace:** {namespace}\n**Values:** {values if values else 'None (using default values)'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Validate Helm chart and values\n- Use MCP tools to install/upgrade chart in OpenShift\n- Monitor deployment status\n- Return installation results and status\n\n**Apply Helm Function Logged Successfully!** ✅"
 
-    def push_to_github(self, namespace: str, yaml_content: str, repo_url: str = "") -> str:
-        """Push generated code to GitHub repository"""
-        self.logger.info(f"Push to GitHub request received:")
+    def push_github(self, namespace: str, helm_chart_content: str, repo_url: str = "", branch: str = "main") -> str:
+        """Step 3: Push files to GitHub by creating a commit and pushing to the repository"""
+        self.logger.info(f"Step 3 - Push to GitHub:")
         self.logger.info(f"  Namespace: {namespace}")
-        self.logger.info(f"  YAML Content Length: {len(yaml_content)} characters")
+        self.logger.info(f"  Helm Chart Content Length: {len(helm_chart_content) if helm_chart_content else 0} characters")
         self.logger.info(f"  Repository URL: {repo_url if repo_url else 'None (will use default)'}")
-        return f"🔄 Push code to GitHub:\n\n**Namespace:** {namespace}\n**Repository URL:** {repo_url if repo_url else 'Default repository (to be configured)'}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Authenticate with GitHub (token/config)\n- Create or update repository structure\n- Commit generated YAML/manifests\n- Push to specified branch\n- Return commit hash and repository URL\n\n**Push to GitHub Function Logged Successfully!** ✅"
+        self.logger.info(f"  Branch: {branch}")
 
-    def generate_argocd_app(self, namespace: str, workload_type: str, supporting_resources: List[str], repo_url: str = "") -> str:
-        """Generate ArgoCD Application manifest"""
-        self.logger.info(f"Generate ArgoCD App request received:")
+        # Use pre-initialized agent for step 3
+        message = f"""Push the following Helm chart files to GitHub:
+
+Repository URL: {repo_url if repo_url else 'Use default repository'}
+Branch: {branch}
+Namespace: {namespace}
+
+Helm Chart Content:
+{helm_chart_content if helm_chart_content else 'No content provided'}
+
+Tasks:
+1. Authenticate with GitHub (use configured token/credentials)
+2. Clone or access the repository
+3. Create appropriate directory structure (e.g., charts/{namespace}/ or similar)
+4. Write all Helm chart files (Chart.yaml, values.yaml, templates/, README.md)
+5. Commit the changes with a descriptive message
+6. Push to the specified branch ({branch})
+7. Return:
+   - Success status
+   - Repository URL
+   - Branch name
+   - Commit hash
+   - How to verify the push was successful (e.g., git command or GitHub URL)
+"""
+        
+        response = self.agent_github.create_turn(
+            messages=[{"role": "user", "content": message}],
+            session_id=self.session_id_github,
+            stream=False,
+        )
+        
+        # Extract answer content
+        push_result = self._extract_answer_content(response)
+        
+        self.logger.info(f"✅ Step 3 completed. Push result: {push_result[:200]}...")
+        
+        # Format result to show success/failure and verification info
+        return push_result
+
+    def generate_argocd_app(self, namespace: str, workload_type: str, supporting_resources: List[str], repo_url: str = "", folder_path: str = "", branch: str = "main") -> str:
+        """Step 4: Generate ArgoCD Application manifest using repo, folder name, etc."""
+        self.logger.info(f"Step 4 - Generate ArgoCD App:")
         self.logger.info(f"  Namespace: {namespace}")
         self.logger.info(f"  Workload Type: {workload_type}")
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
         self.logger.info(f"  Repository URL: {repo_url if repo_url else 'None (will use default)'}")
+        self.logger.info(f"  Folder Path: {folder_path if folder_path else 'None'}")
+        self.logger.info(f"  Branch: {branch}")
 
-        # Combine workload type and supporting resources for display
+        # Use pre-initialized agent for step 4
         all_resources = [workload_type] + supporting_resources if workload_type else supporting_resources
-        return f"📝 Generate ArgoCD App:\n\n**Namespace:** {namespace}\n**Repository URL:** {repo_url if repo_url else 'Default repository (to be configured)'}\n**Workload Type:** {workload_type if workload_type else 'None'}\n**Supporting Resources:** {', '.join(supporting_resources) if supporting_resources else 'None'}\n**All Resources:** {', '.join(all_resources) if all_resources else 'None'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Generate ArgoCD Application manifest\n- Configure source (Git repository, Helm chart, etc.)\n- Set sync policy and automated sync options\n- Configure destination (cluster and namespace)\n- Generate Application manifest YAML\n\n**Generate ArgoCD App Function Logged Successfully!** ✅"
+        default_folder_path = f'charts/{namespace}/'
+        message = f"""Generate an ArgoCD Application manifest with the following configuration:
+
+Repository URL: {repo_url if repo_url else 'Use default repository'}
+Branch: {branch}
+Folder Path: {folder_path if folder_path else default_folder_path}
+Namespace: {namespace}
+Workload Type: {workload_type if workload_type else 'None'}
+Supporting Resources: {', '.join(supporting_resources) if supporting_resources else 'None'}
+
+Requirements:
+1. Create an ArgoCD Application manifest (apiVersion: argoproj.io/v1alpha1, kind: Application)
+2. Configure source:
+   - Repository URL: {repo_url if repo_url else 'Configure appropriately'}
+   - Path: {folder_path if folder_path else default_folder_path}
+   - Branch/Revision: {branch}
+   - Use Helm source type (since we're deploying a Helm chart)
+3. Configure destination:
+   - Cluster: use in-cluster configuration or default cluster
+   - Namespace: {namespace}
+4. Set sync policy:
+   - Enable automated sync
+   - Enable self-heal
+   - Enable prune
+5. Include appropriate labels and annotations
+6. Return the complete YAML manifest ready to apply with kubectl/oc
+
+Generate the complete ArgoCD Application YAML manifest.
+"""
+        
+        response = self.agent_argocd.create_turn(
+            messages=[{"role": "user", "content": message}],
+            session_id=self.session_id_argocd,
+            stream=False,
+        )
+        
+        # Extract answer content
+        argocd_app_content = self._extract_answer_content(response)
+        
+        self.logger.info(f"✅ Step 4 completed. Generated ArgoCD App manifest ({len(argocd_app_content)} characters)")
+        
+        # Return the ArgoCD Application manifest content
+        return argocd_app_content
 
     def apply_argocd_app(self, namespace: str, argocd_app_content: str) -> str:
         """Apply ArgoCD Application manifest to cluster"""
