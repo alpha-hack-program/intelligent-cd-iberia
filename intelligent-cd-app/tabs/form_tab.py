@@ -274,18 +274,7 @@ class FormTab:
             status_message = f"An unexpected error occurred: {e}"
             output = ""
 
-        result = f"""🔧 Apply YAML to OpenShift:
-
-**Namespace:** {namespace}
-**YAML Content Length:** {len(yaml_content)} characters
-
-**Output:**
-{output}
-
-**Status:** {status_message}
-"""
-        
-        return result
+        return f"🔧 Apply YAML to OpenShift:\n\n**Namespace:** {namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
 
     def generate_helm(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str]) -> str:
         """Generate Helm chart based on form inputs"""
@@ -297,26 +286,7 @@ class FormTab:
 
         # Combine workload type and supporting resources for display
         all_resources = [workload_type] + supporting_resources if workload_type else supporting_resources
-
-        result = f"""📦 Generate Helm Chart:
-
-**Namespace:** {namespace}
-**Helm Chart:** {helm_chart if helm_chart else 'None (will generate new chart)'}
-**Workload Type:** {workload_type if workload_type else 'None'}
-**Supporting Resources:** {', '.join(supporting_resources) if supporting_resources else 'None'}
-**All Resources:** {', '.join(all_resources) if all_resources else 'None'}
-
-**Status:** Placeholder function - not yet implemented
-
-**Next Steps:**
-- Generate Helm chart structure
-- Create templates for selected resource types
-- Generate values.yaml with namespace configuration
-- Package chart and provide download/instructions
-
-**Generate Helm Function Logged Successfully!** ✅"""
-        
-        return result
+        return f"📦 Generate Helm Chart:\n\n**Namespace:** {namespace}\n**Helm Chart:** {helm_chart if helm_chart else 'None (will generate new chart)'}\n**Workload Type:** {workload_type if workload_type else 'None'}\n**Supporting Resources:** {', '.join(supporting_resources) if supporting_resources else 'None'}\n**All Resources:** {', '.join(all_resources) if all_resources else 'None'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Generate Helm chart structure\n- Create templates for selected resource types\n- Generate values.yaml with namespace configuration\n- Package chart and provide download/instructions\n\n**Generate Helm Function Logged Successfully!** ✅"
 
     def apply_helm(self, helm_chart: str, namespace: str, values: str = "") -> str:
         """Apply Helm chart to OpenShift cluster"""
@@ -324,23 +294,38 @@ class FormTab:
         self.logger.info(f"  Helm Chart: {helm_chart}")
         self.logger.info(f"  Namespace: {namespace}")
         self.logger.info(f"  Values: {values if values else 'None'}")
+        return f"🚀 Apply Helm Chart to OpenShift:\n\n**Helm Chart:** {helm_chart}\n**Namespace:** {namespace}\n**Values:** {values if values else 'None (using default values)'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Validate Helm chart and values\n- Use MCP tools to install/upgrade chart in OpenShift\n- Monitor deployment status\n- Return installation results and status\n\n**Apply Helm Function Logged Successfully!** ✅"
 
-        result = f"""🚀 Apply Helm Chart to OpenShift:
+    def push_to_github(self, namespace: str, yaml_content: str, repo_url: str = "") -> str:
+        """Push generated code to GitHub repository"""
+        self.logger.info(f"Push to GitHub request received:")
+        self.logger.info(f"  Namespace: {namespace}")
+        self.logger.info(f"  YAML Content Length: {len(yaml_content)} characters")
+        self.logger.info(f"  Repository URL: {repo_url if repo_url else 'None (will use default)'}")
+        return f"🔄 Push code to GitHub:\n\n**Namespace:** {namespace}\n**Repository URL:** {repo_url if repo_url else 'Default repository (to be configured)'}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Authenticate with GitHub (token/config)\n- Create or update repository structure\n- Commit generated YAML/manifests\n- Push to specified branch\n- Return commit hash and repository URL\n\n**Push to GitHub Function Logged Successfully!** ✅"
 
-**Helm Chart:** {helm_chart}
-**Namespace:** {namespace}
-**Values:** {values if values else 'None (using default values)'}
+    def generate_argocd_app(self, namespace: str, workload_type: str, supporting_resources: List[str], repo_url: str = "") -> str:
+        """Generate ArgoCD Application manifest"""
+        self.logger.info(f"Generate ArgoCD App request received:")
+        self.logger.info(f"  Namespace: {namespace}")
+        self.logger.info(f"  Workload Type: {workload_type}")
+        self.logger.info(f"  Supporting Resources: {supporting_resources}")
+        self.logger.info(f"  Repository URL: {repo_url if repo_url else 'None (will use default)'}")
 
-**Status:** Placeholder function - not yet implemented
+        # Combine workload type and supporting resources for display
+        all_resources = [workload_type] + supporting_resources if workload_type else supporting_resources
+        return f"📝 Generate ArgoCD App:\n\n**Namespace:** {namespace}\n**Repository URL:** {repo_url if repo_url else 'Default repository (to be configured)'}\n**Workload Type:** {workload_type if workload_type else 'None'}\n**Supporting Resources:** {', '.join(supporting_resources) if supporting_resources else 'None'}\n**All Resources:** {', '.join(all_resources) if all_resources else 'None'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Generate ArgoCD Application manifest\n- Configure source (Git repository, Helm chart, etc.)\n- Set sync policy and automated sync options\n- Configure destination (cluster and namespace)\n- Generate Application manifest YAML\n\n**Generate ArgoCD App Function Logged Successfully!** ✅"
 
-**Next Steps:**
-- Validate Helm chart and values
-- Use MCP tools to install/upgrade chart in OpenShift
-- Monitor deployment status
-- Return installation results and status
+    def apply_argocd_app(self, namespace: str, argocd_app_content: str) -> str:
+        """Apply ArgoCD Application manifest to cluster"""
+        self.logger.info(f"Apply ArgoCD App request received:")
+        self.logger.info(f"  Namespace: {namespace}")
+        self.logger.info(f"  ArgoCD App Content Length: {len(argocd_app_content)} characters")
 
-**Apply Helm Function Logged Successfully!** ✅"""
-        
-        return result
+        try:
+            # This is a placeholder - will be implemented to use kubectl or ArgoCD CLI
+            return f"🔧 Apply ArgoCD App to OpenShift:\n\n**Namespace:** {namespace}\n**ArgoCD App Content Length:** {len(argocd_app_content)} characters\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Validate ArgoCD Application manifest\n- Use kubectl apply or ArgoCD CLI to create Application\n- Monitor ArgoCD sync status\n- Return application status and sync results\n\n**Apply ArgoCD App Function Logged Successfully!** ✅"
+        except Exception as e:
+            return f"🔧 Apply ArgoCD App to OpenShift:\n\n**Namespace:** {namespace}\n**ArgoCD App Content Length:** {len(argocd_app_content)} characters\n\n**Status:** Error occurred: {e}\n\n**Apply ArgoCD App Function Failed!** ❌"
 
 
