@@ -343,6 +343,19 @@ class FormTab:
             session_id=self.session_id_helm,
             stream=False,
         )
+
+        # Log response structure for debugging
+        self.logger.info("=" * 60)
+        self.logger.info("Response Structure Analysis:")
+        self.logger.info("=" * 60)
+        self.logger.info(f"Response type: {type(response)}")
+        self.logger.info(f"Response attributes: {dir(response)}")
+        
+        # Log all steps if available
+        if hasattr(response, 'steps') and response.steps:
+            self.logger.info(f"Number of steps: {len(response.steps)}")
+            for i, step in enumerate(response.steps):
+                self.logger.debug(f"Step {i}: {step}")
         
         # Extract answer content
         helm_chart_content = self._extract_answer_content(response)
@@ -375,6 +388,19 @@ class FormTab:
             session_id=self.session_id_github,
             stream=False,
         )
+
+        # Log response structure for debugging
+        self.logger.info("=" * 60)
+        self.logger.info("Response Structure Analysis:")
+        self.logger.info("=" * 60)
+        self.logger.info(f"Response type: {type(response)}")
+        self.logger.info(f"Response attributes: {dir(response)}")
+        
+        # Log all steps if available
+        if hasattr(response, 'steps') and response.steps:
+            self.logger.info(f"Number of steps: {len(response.steps)}")
+            for i, step in enumerate(response.steps):
+                self.logger.debug(f"Step {i}: {step}")
         
         # Extract answer content
         push_result = self._extract_answer_content(response)
@@ -397,6 +423,19 @@ class FormTab:
             session_id=self.session_id_argocd,
             stream=False,
         )
+
+        # Log response structure for debugging
+        self.logger.info("=" * 60)
+        self.logger.info("Response Structure Analysis:")
+        self.logger.info("=" * 60)
+        self.logger.info(f"Response type: {type(response)}")
+        self.logger.info(f"Response attributes: {dir(response)}")
+        
+        # Log all steps if available
+        if hasattr(response, 'steps') and response.steps:
+            self.logger.info(f"Number of steps: {len(response.steps)}")
+            for i, step in enumerate(response.steps):
+                self.logger.debug(f"Step {i}: {step}")
         
         # Extract answer content
         argocd_app_content = self._extract_answer_content(response)
