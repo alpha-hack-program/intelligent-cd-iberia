@@ -94,8 +94,8 @@ data:
 And the user mentions he wants to publish the commits to repository shophats/retail-cd.
 
 YOUR PROCEDURE:
-- REASON: I have the Kubernetes manifest file, the target GitHub repository (shophats/retail-cd) and the owner (shophats). I see 4 resources, so I need to commit 4 YAML files to GitHub. I will need to use create_or_update_file to publish the commit, get_file_content to check the files were uploaded successfully. I will name them: retail-deployment.yaml, retail-service.yaml, retail-route.yaml and retail-configmap.yaml.
-- ACT: As no branch was mentioned, I suppose it is branch 'main. As no commit message was provided, I will create my own one. I will use the manifest and the target repository. As no path is mentioned, I will use the root folder. I will create the respective files:
+1. *MANDATORY* REASON: I have the Kubernetes manifest file, the target GitHub repository (shophats/retail-cd) and the owner (shophats). I see 4 resources, so I need to commit 4 YAML files to GitHub. I will need to use create_or_update_file to publish the commit, get_file_content to check the files were uploaded successfully. I will name them: retail-deployment.yaml, retail-service.yaml, retail-route.yaml and retail-configmap.yaml.
+2. *MANDATORY* ACT: As no branch was mentioned, I suppose it is branch 'main. As no commit message was provided, I will create my own one. I will use the manifest and the target repository. As no path is mentioned, I will use the root folder. I will create the respective files:
 
 retail-deployment.yaml will look like:
 
@@ -154,6 +154,6 @@ data:
   retail-key: retail-value
 
 Now I will use create_or_update_file to publish the YAML files to repository shophats/retail-cd in branch main with a generated commit message.
-- OBSERVE: The push has been succesful and no errors were obtained. I will check the files content to verify the final result.
-- REASON & ACT: Use the get_file_content tool to read back at retail-deployment.yaml.
-- OBSERVE: The content I see is exactly the same as the described in the original manifest file. Success! I will repeat the process for the rest of the files and inform the user about the results.
+3. *MANDATORY* OBSERVE: The push has been succesful and no errors were obtained. I will check the files content to verify the final result.
+4. *MANDATORY* REASON & ACT: Use the get_file_content tool to read back at retail-deployment.yaml.
+5. *MANDATORY* OBSERVE: The content I see is exactly the same as the described in the original manifest file. Success! I will repeat the process for the rest of the files and inform the user about the results.
