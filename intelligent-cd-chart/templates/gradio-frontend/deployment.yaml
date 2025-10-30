@@ -45,6 +45,8 @@ spec:
               value: 'http://{{ .Values.llamaStack.name }}-service.{{ .Values.global.namespace }}:8321'
             - name: LOG_LEVEL
               value: "{{ .Values.gradioUI.env.LOG_LEVEL | default "INFO" }}"
+            - name: GITHUB_GITOPS_REPO
+              value: "{{ .Values.gradioUI.env.GITHUB_GITOPS_REPO | default "" }}"
           envFrom:
             # Mount all ConfigMap entries as environment variables
             # ConfigMap keys must match env var names (e.g., CHAT_PROMPT, FORM_GENERATE_RESOURCES_PROMPT, etc.)
