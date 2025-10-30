@@ -94,13 +94,13 @@ gradioUI:
           max_new_tokens: 300000
           strategy:
             type: "greedy"
-        tools:
+        tools: []
           # - "mcp::openshift"
-          - name: "builtin::rag"
-            args:
-              vector_db_names:
-                - "gitops-documentation"
-              top_k: 5
+          # - name: "builtin::rag"
+          #   args:
+          #     vector_db_names:
+          #       - "gitops-documentation"
+          #     top_k: 5
       
       # Step 3: Push GitHub
       push_github:
@@ -125,11 +125,11 @@ gradioUI:
         tools:
           # - "mcp::argocd"
           - "mcp::openshift"
-          - name: "builtin::rag"
-            args:
-              vector_db_names:
-                - "gitops-documentation"
-              top_k: 5
+          # - name: "builtin::rag"
+          #   args:
+          #     vector_db_names:
+          #       - "gitops-documentation"
+          #     top_k: 5
 
     chat_tab:
       sampling_params:
