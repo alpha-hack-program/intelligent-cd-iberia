@@ -544,10 +544,18 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             fn=lambda: "🚀 Button 'Apply Helm' clicked",
             outputs=content_area
         )
+
+        # Push code to GitHub button functionality
+        push_github_btn.click(
+            fn=form_tab.push_github,
+            inputs=[namespace_input, content_area],
+            outputs=content_area
+        )
         
         # Generate ArgoCD App button functionality - show alert
         generate_argocd_btn.click(
-            fn=lambda: "📝 Button 'Generate ArgoCD App' clicked",
+            fn=form_tab.generate_argocd_app,
+            inputs=[namespace_input],
             outputs=content_area
         )
         
@@ -557,11 +565,6 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             outputs=content_area
         )
         
-        # Push code to GitHub button functionality - show alert
-        push_github_btn.click(
-            fn=lambda: "🔄 Button 'Push code to GitHub' clicked",
-            outputs=content_area
-        )
         
         # Refresh Toolgroups Button (next to dropdown)
         refresh_toolgroups_btn.click(

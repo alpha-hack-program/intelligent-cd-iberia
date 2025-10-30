@@ -59,6 +59,7 @@ echo "  Tool Package: ${SERVICENOW_MCP_TOOL_PACKAGE}"
 echo ""
 echo "🔧 GitHub MCP Server Configuration:"
 echo "  Auth Token: ${GITHUB_PAT:0:15}..."
+echo "  GitOps Repository URL: $GITHUB_GITOPS_REPO"
 echo "  Toolsets: $GITHUB_MCP_SERVER_TOOLSETS"
 echo "  Readonly: $GITHUB_MCP_SERVER_READONLY"
 echo ""
@@ -139,6 +140,7 @@ helm template intelligent-cd-chart \
 --set gradioUI.config.github.pat="$GITHUB_PAT" \
 --set gradioUI.config.github.toolsets="$GITHUB_MCP_SERVER_TOOLSETS" \
 --set gradioUI.config.github.readonly="$GITHUB_MCP_SERVER_READONLY" \
+--set gradioUI.env.GITHUB_GITOPS_REPO="$GITHUB_GITOPS_REPO" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_INSTANCE_URL="$SERVICENOW_INSTANCE_URL" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_AUTH_TYPE="$SERVICENOW_AUTH_TYPE" \
 --set mcpServers.servicenowMcp.env.SERVICENOW_USERNAME="$SERVICENOW_USERNAME" \

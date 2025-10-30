@@ -152,6 +152,7 @@ gradioUI:
 
   env:
     LOG_LEVEL: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    GITHUB_GITOPS_REPO: ""
 
   # Resources
   resources:

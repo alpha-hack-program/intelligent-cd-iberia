@@ -23,6 +23,7 @@ class FormTab:
         self.logger = get_logger("form")
         self.model = model
         self.max_infer_iters = int(os.getenv("FORM_MAX_INFER_ITERS", "15"))
+        self.github_gitops_repo = os.getenv("GITHUB_GITOPS_REPO", "")
 
         # Load step-specific configurations from environment variables
         self.logger.info("Loading step-specific configurations...")
@@ -335,23 +336,7 @@ class FormTab:
         self.logger.info(f"  Resources YAML Length: {len(resources_yaml) if resources_yaml else 0} characters")
 
         # Use pre-initialized agent for step 2
-        message = f"""Create a Helm chart from the following Kubernetes resources:
-        
-Namespace: {namespace}
-Helm Chart Name: {helm_chart if helm_chart else 'generated-chart'}
-Workload Type: {workload_type}
-Supporting Resources: {', '.join(supporting_resources) if supporting_resources else 'None'}
-
-Resources YAML:
-{resources_yaml if resources_yaml else 'No resources provided'}
-
-Generate a complete Helm chart structure with:
-- Chart.yaml with appropriate metadata
-- values.yaml with configurable values (including namespace)
-- Templates directory with all resource templates converted from the YAML above
-- Proper templating using Helm syntax ({{{{ .Values.* }}}})
-- README.md with chart description and usage
-"""
+        message = f"Create a Helm chart from the following Kubernetes resources: Namespace: {namespace}, Helm Chart Name: {helm_chart if helm_chart else 'generated-chart'}, Workload Type: {workload_type}, Supporting Resources: {', '.join(supporting_resources) if supporting_resources else 'None'}, Resources YAML: {resources_yaml if resources_yaml else 'No resources provided'}."
         
         response = self.agent_helm.create_turn(
             messages=[{"role": "user", "content": message}],
@@ -375,38 +360,15 @@ Generate a complete Helm chart structure with:
         self.logger.info(f"  Values: {values if values else 'None'}")
         return f"🚀 Apply Helm Chart to OpenShift:\n\n**Helm Chart:** {helm_chart}\n**Namespace:** {namespace}\n**Values:** {values if values else 'None (using default values)'}\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Validate Helm chart and values\n- Use MCP tools to install/upgrade chart in OpenShift\n- Monitor deployment status\n- Return installation results and status\n\n**Apply Helm Function Logged Successfully!** ✅"
 
-    def push_github(self, namespace: str, helm_chart_content: str, repo_url: str = "", branch: str = "main") -> str:
+    def push_github(self, namespace: str, application_content: str) -> str:
         """Step 3: Push files to GitHub by creating a commit and pushing to the repository"""
         self.logger.info(f"Step 3 - Push to GitHub:")
         self.logger.info(f"  Namespace: {namespace}")
-        self.logger.info(f"  Helm Chart Content Length: {len(helm_chart_content) if helm_chart_content else 0} characters")
-        self.logger.info(f"  Repository URL: {repo_url if repo_url else 'None (will use default)'}")
-        self.logger.info(f"  Branch: {branch}")
+        self.logger.info(f"  Application Content Length: {len(application_content) if application_content else 0} characters")
+        self.logger.info(f"  Repository URL: {self.github_gitops_repo}")
 
         # Use pre-initialized agent for step 3
-        message = f"""Push the following Helm chart files to GitHub:
-
-Repository URL: {repo_url if repo_url else 'Use default repository'}
-Branch: {branch}
-Namespace: {namespace}
-
-Helm Chart Content:
-{helm_chart_content if helm_chart_content else 'No content provided'}
-
-Tasks:
-1. Authenticate with GitHub (use configured token/credentials)
-2. Clone or access the repository
-3. Create appropriate directory structure (e.g., charts/{namespace}/ or similar)
-4. Write all Helm chart files (Chart.yaml, values.yaml, templates/, README.md)
-5. Commit the changes with a descriptive message
-6. Push to the specified branch ({branch})
-7. Return:
-   - Success status
-   - Repository URL
-   - Branch name
-   - Commit hash
-   - How to verify the push was successful (e.g., git command or GitHub URL)
-"""
+        message = f"Push the following content to the repository {self.github_gitops_repo} for the namespace {namespace} the following application content:\n{application_content}"
         
         response = self.agent_github.create_turn(
             messages=[{"role": "user", "content": message}],
@@ -422,47 +384,13 @@ Tasks:
         # Format result to show success/failure and verification info
         return push_result
 
-    def generate_argocd_app(self, namespace: str, workload_type: str, supporting_resources: List[str], repo_url: str = "", folder_path: str = "", branch: str = "main") -> str:
+    def generate_argocd_app(self, namespace: str) -> str:
         """Step 4: Generate ArgoCD Application manifest using repo, folder name, etc."""
         self.logger.info(f"Step 4 - Generate ArgoCD App:")
         self.logger.info(f"  Namespace: {namespace}")
-        self.logger.info(f"  Workload Type: {workload_type}")
-        self.logger.info(f"  Supporting Resources: {supporting_resources}")
-        self.logger.info(f"  Repository URL: {repo_url if repo_url else 'None (will use default)'}")
-        self.logger.info(f"  Folder Path: {folder_path if folder_path else 'None'}")
-        self.logger.info(f"  Branch: {branch}")
+        self.logger.info(f"  Repository URL: {self.github_gitops_repo}")
 
-        # Use pre-initialized agent for step 4
-        all_resources = [workload_type] + supporting_resources if workload_type else supporting_resources
-        default_folder_path = f'charts/{namespace}/'
-        message = f"""Generate an ArgoCD Application manifest with the following configuration:
-
-Repository URL: {repo_url if repo_url else 'Use default repository'}
-Branch: {branch}
-Folder Path: {folder_path if folder_path else default_folder_path}
-Namespace: {namespace}
-Workload Type: {workload_type if workload_type else 'None'}
-Supporting Resources: {', '.join(supporting_resources) if supporting_resources else 'None'}
-
-Requirements:
-1. Create an ArgoCD Application manifest (apiVersion: argoproj.io/v1alpha1, kind: Application)
-2. Configure source:
-   - Repository URL: {repo_url if repo_url else 'Configure appropriately'}
-   - Path: {folder_path if folder_path else default_folder_path}
-   - Branch/Revision: {branch}
-   - Use Helm source type (since we're deploying a Helm chart)
-3. Configure destination:
-   - Cluster: use in-cluster configuration or default cluster
-   - Namespace: {namespace}
-4. Set sync policy:
-   - Enable automated sync
-   - Enable self-heal
-   - Enable prune
-5. Include appropriate labels and annotations
-6. Return the complete YAML manifest ready to apply with kubectl/oc
-
-Generate the complete ArgoCD Application YAML manifest.
-"""
+        message = f"Generate an ArgoCD Application manifest with the following configuration: Repository URL: {self.github_gitops_repo}, and namespace {namespace}."
         
         response = self.agent_argocd.create_turn(
             messages=[{"role": "user", "content": message}],
