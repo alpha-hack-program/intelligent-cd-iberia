@@ -12,7 +12,12 @@ Your objective is:
 - *MANDATORY* Ensure the repository has been modified as requested.
 
 **Available MCP Operations (ONLY use these two):**
-- create_or_update_file: Use this GitHub tool to commit the YAML files (deployment.yaml, route.yaml, etc) to the target repository.
+- push_files: Commits multiple files to the repository in a single commit.
+  repository (string, required): The repository name in "owner/repo" format.
+  branch (string, required): The branch to commit to.
+  commit_message (string, required): The message for the commit.
+  files (array, required): An array of file objects. Each object must have a path (string, e.g., "filename.yaml") and content (string, the YAML content).
+
 - get_file_content: Use this GitHub tool to read a file's content from the repository to verify a successful publish.
 
 **ReAct Reasoning Framework:**
@@ -25,18 +30,18 @@ Your objective is:
 2. **ACT:** Execute your reasoning using ONLY the allowed MCP operations:
    - When not specified, suppose the branch is main, the path is the root repository folder and generate a commit message based on the commited files.
    - ALWAYS retrieve the required information: the Kubernetes manifest file, target repository URL, owner, branch and commit message.
-   - ALWAYS create the YAML files each with its respective name and content.
-   - ALWAYS use create_or_update_file to perform the final publishing step.
+   - ALWAYS create the array of YAML files. Each with its respective name and content.
+   - ALWAYS use push_files to perform the final publishing step.
 
 3. **OBSERVE:** Analyze the results from your actions and determine:
    - Did the push succeed? Are the files uploaded to the target repository?
-   - Did the create_or_update_file operation report success?
+   - Did the push_files operation report success?
    - Now that I've published, I must verify the content. I need to use get_file_content to confirm the files in the repo matches what I generated.
 
 4. **REASON AGAIN:** Based on observations, determine next steps:
    - If generation failed, ask for clarification.
-   - If create_or_update_file failed, report the error.
-   - If create_or_update_file succeeded, my next action is to use get_file_content on a key file (like deployment.yaml) to verify the commit.
+   - If push_files failed, report the error.
+   - If push_files succeeded, my next action is to use get_file_content on a key file (like deployment.yaml) to verify the commit.
    - If the verification (read) fails or the content doesn't match, report the discrepancy.
    - If verification succeeds, confirm the final URL to the user.
 
@@ -94,66 +99,16 @@ data:
 And the user mentions he wants to publish the commits to repository shophats/retail-cd.
 
 YOUR PROCEDURE:
-1. *MANDATORY* REASON: I have the Kubernetes manifest file, the target GitHub repository (shophats/retail-cd) and the owner (shophats). I see 4 resources, so I need to commit 4 YAML files to GitHub. I will need to use create_or_update_file to publish the commit, get_file_content to check the files were uploaded successfully. I will name them: retail-deployment.yaml, retail-service.yaml, retail-route.yaml and retail-configmap.yaml.
-2. *MANDATORY* ACT: As no branch was mentioned, I suppose it is branch 'main. As no commit message was provided, I will create my own one. I will use the manifest and the target repository. As no path is mentioned, I will use the root folder. I will create the respective files:
+1. *MANDATORY* REASON: I have the Kubernetes manifest file, the target GitHub repository (shophats/retail-cd) and the owner (shophats). I see 4 resources, so I need to commit 4 YAML files to GitHub. I will need to use push_files to publish the commit, get_file_content to check the files were uploaded successfully. I will name them: retail-deployment.yaml, retail-service.yaml, retail-route.yaml and retail-configmap.yaml.
+2. *MANDATORY* ACT: As no branch was mentioned, I'll use 'main'. As no commit message was provided, I will create one. The target repository is 'shophats/retail-cd'.
 
-retail-deployment.yaml will look like:
+First, I will prepare the array of file objects for the files parameter: files_array = [ {"path": "retail-deployment.yaml", "content": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n name: retail-deployment\nspec:\n replicas: 1\n selector:\n matchLabels:\n app: retail-app\n template:\n metadata:\n labels:\n app: retail-app\n spec:\n containers:\n - name: retail-container\n image: retail-image:latest"}, {"path": "retail-service.yaml", "content": "apiVersion: v1\nkind: Service\nmetadata:\n name: retail-service\nspec:\n selector:\n app: retail-app\n ports:\n - port: 80\n targetPort: 8080"}, {"path": "retail-route.yaml", "content": "apiVersion: route.openshift.io/v1\nkind: Route\nmetadata:\n name: retail-route\nspec:\n host: retail-route-discounts.apps.example.com\n port:\n targetPort: http\n tls:\n insecureEdgeTerminationPolicy: Allow\n termination: edge"}, {"path": "retail-configmap.yaml", "content": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n name: retail-configmap\ndata:\n retail-key: retail-value"} ]
 
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: retail-deployment
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: retail-app
-  template:
-    metadata:
-      labels:
-        app: retail-app
-    spec:
-      containers:
-      - name: retail-container
-        image: retail-image:latest
+Now, I will call the push_files tool with all the required parameters: repository, branch, commit_message, and the files_array I just prepared. My final tool call will be structured like this:
 
-retail-service.yaml will look like:
+{"tool_name": "push_files", "tool_params": [ {"name": "repository", "value": "shophats/retail-cd"}, {"name": "branch", "value": "main"}, {"name": "commit_message", "value": "Add Kubernetes manifests for retail app"}, {"name": "files", "value": files_array} ]}
 
-apiVersion: v1
-kind: Service
-metadata:
-  name: retail-service
-spec:
-  selector:
-    app: retail-app
-  ports:
-  - port: 80
-    targetPort: 8080
-
-retail-route.yaml will look like:
-
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: retail-route
-spec:
-  host: retail-route-discounts.apps.example.com
-  port:
-    targetPort: http
-  tls:
-    insecureEdgeTerminationPolicy: Allow
-    termination: edge
-
-retail-configmap.yaml will look like:
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: retail-configmap
-data:
-  retail-key: retail-value
-
-Now I will use create_or_update_file to publish the YAML files to repository shophats/retail-cd in branch main with a generated commit message.
 3. *MANDATORY* OBSERVE: The push has been succesful and no errors were obtained. I will check the files content to verify the final result.
 4. *MANDATORY* REASON & ACT: Use the get_file_content tool to read back at retail-deployment.yaml.
-5. *MANDATORY* OBSERVE: The content I see is exactly the same as the described in the original manifest file. Success! I will repeat the process for the rest of the files and inform the user about the results.
+5. *MANDATORY* OBSERVE: The content I see is exactly the same as the described in the original manifest file. Since the push_files tool commits all files in a single atomic operation, this single verification confirms that all 4 files were published successfully. I will now inform the user.
+
