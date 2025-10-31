@@ -445,16 +445,36 @@ class FormTab:
         # Return the ArgoCD Application manifest content
         return argocd_app_content
 
-    def apply_argocd_app(self, namespace: str, argocd_app_content: str) -> str:
+    def apply_argocd_app(self, argocd_app_content: str) -> str:
         """Apply ArgoCD Application manifest to cluster"""
         self.logger.info(f"Apply ArgoCD App request received:")
-        self.logger.info(f"  Namespace: {namespace}")
         self.logger.info(f"  ArgoCD App Content Length: {len(argocd_app_content)} characters")
 
         try:
-            # This is a placeholder - will be implemented to use kubectl or ArgoCD CLI
-            return f"🔧 Apply ArgoCD App to OpenShift:\n\n**Namespace:** {namespace}\n**ArgoCD App Content Length:** {len(argocd_app_content)} characters\n\n**Status:** Placeholder function - not yet implemented\n\n**Next Steps:**\n- Validate ArgoCD Application manifest\n- Use kubectl apply or ArgoCD CLI to create Application\n- Monitor ArgoCD sync status\n- Return application status and sync results\n\n**Apply ArgoCD App Function Logged Successfully!** ✅"
+            # Apply ArgoCD Application manifest using kubectl
+            # The '-' argument tells 'kubectl apply' to read from standard input.
+            process = subprocess.Popen(
+                ['kubectl', 'apply', '-f', '-'],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            stdout, stderr = process.communicate(input=argocd_app_content)
+
+            if process.returncode == 0:
+                status_message = "**Apply ArgoCD App Function Logged Successfully!** ✅"
+                output = stdout
+            else:
+                status_message = "**Apply ArgoCD App Function Failed!** ❌"
+                output = f"Error: {stderr}"
+                
         except Exception as e:
-            return f"🔧 Apply ArgoCD App to OpenShift:\n\n**Namespace:** {namespace}\n**ArgoCD App Content Length:** {len(argocd_app_content)} characters\n\n**Status:** Error occurred: {e}\n\n**Apply ArgoCD App Function Failed!** ❌"
+            # Handle any unexpected errors
+            status_message = f"An unexpected error occurred: {e}"
+            output = ""
+
+        return f"🔧 Apply ArgoCD App to OpenShift:\n\n**ArgoCD App Content Length:** {len(argocd_app_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
 
 

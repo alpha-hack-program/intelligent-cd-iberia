@@ -559,9 +559,10 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             outputs=content_area
         )
         
-        # Apply ArgoCD App button functionality - show alert
+        # Apply ArgoCD App button functionality
         apply_argocd_btn.click(
-            fn=lambda: "🔧 Button 'Apply ArgoCD App' clicked",
+            fn=form_tab.apply_argocd_app,
+            inputs=[content_area],
             outputs=content_area
         )
         
