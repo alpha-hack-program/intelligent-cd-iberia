@@ -379,7 +379,7 @@ class FormTab:
         self.logger.info(f"  Repository URL: {self.github_gitops_repo}")
 
         # Use pre-initialized agent for step 3
-        message = f"Push the following content to the repository {self.github_gitops_repo} for the namespace {namespace} the following application content:\n{application_content}"
+        message = f"You are my GitHub assistant and you are here to automate my GitHub commits. I will not upload anything myself, but you must use your MCP tools to help me!\n\nYou are given this Kubernetes manifest file. It describes different Kubernetes resources. You must commit the respective YAML files to GitHub. \nrepo {self.github_gitops_repo}.\nbranch: main\ncommit message: \"A real test!\"\nFile information:\n- path: the metadata name of each YAML file in the repository root folder (for example discounts-configmap-env-base.yaml)\n- content: the content of that YAML file\n\nDo not answer me with the GitHub call. You must make the call using your MCP tools. Check the YAMLs were uploaded successfully and inform the user about the final result.\n\n\n{application_content}"
         
         response = self.agent_github.create_turn(
             messages=[{"role": "user", "content": message}],
