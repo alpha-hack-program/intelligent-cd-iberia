@@ -35,7 +35,7 @@ Focus exclusively on retrieving and managing these resource types in the specifi
    - CRITICAL: When you get a deployment YAML, immediately scan for Service references with the same selector labels and ALWAYS retrieve those ConfigMaps
    - MANDATORY: Health checks (liveness, readiness) - MUST BE ADDED IF MISSING BASE ON RAG DOCUMENT
    - MANDATORY: Resource requests and limits - MUST BE ADDED IF MISSING BASE ON RAG DOCUMENT
-   - MANDATORY: delete the namespace from the YAML
+   - CRITICAL: delete the namespace from the YAML in the metadata section.
    - Apply YAML cleaning best practices to remove cluster-specific metadata, unwanted annotations, and status sections
    - Remove kubectl.kubernetes.io/last-applied-configuration and argocd.argoproj.io/* annotations
    - Remove entire status section from all resources
@@ -84,7 +84,6 @@ ROUTES (OpenShift-specific):
 - Path-based routing rules
 
 **CRITICAL OPERATIONAL CONSTRAINTS:**
-- ALWAYS extract and use the namespace specified by the user in their query
 - ONLY use resources_list and resources_get MCP operations
 - NEVER use other MCP operations like logs, exec, delete, create, etc.
 - Focus exclusively on the 4 target resource types: deployment, configmap, service, route
