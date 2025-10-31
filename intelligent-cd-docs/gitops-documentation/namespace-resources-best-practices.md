@@ -19,9 +19,12 @@ METADATA TO REMOVE WHEN CLEANING YAMLS:
 - finalizers: (usually safe to remove for redeployment)
 - ownerReferences: (remove if creating standalone resources)
 
+NOTE: Super important to remove the namespace definition from the resources metadata section.
+
 SECTIONS TO COMPLETELY REMOVE:
 - status: ENTIRE status section must be removed (runtime information)
 - spec.template.metadata.creationTimestamp: Remove from pod templates
+- metadata.namespace: Make sure that none of the resources in the output have a namespace specified.
 
 ANNOTATIONS TO REMOVE WHEN CLEANING YAMLS:
 - kubectl.kubernetes.io/last-applied-configuration: Auto-generated kubectl annotation
