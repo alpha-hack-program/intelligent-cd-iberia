@@ -112,7 +112,11 @@ gradioUI:
             type: "greedy"
         tools:
           - "mcp::github"
-          # - "mcp::openshift"
+          - name: "builtin::rag"
+            args:
+              vector_db_names:
+                - "gitops-documentation"
+              top_k: 1
       
       # Step 4: Generate ArgoCD
       generate_argocd:
@@ -125,11 +129,11 @@ gradioUI:
         tools:
           # - "mcp::argocd"
           - "mcp::openshift"
-          # - name: "builtin::rag"
-          #   args:
-          #     vector_db_names:
-          #       - "gitops-documentation"
-          #     top_k: 5
+          - name: "builtin::rag"
+            args:
+              vector_db_names:
+                - "gitops-documentation"
+              top_k: 1
 
     chat_tab:
       sampling_params:
