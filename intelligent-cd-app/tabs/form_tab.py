@@ -296,13 +296,13 @@ class FormTab:
         self.logger.info(f"  YAML Content Length: {len(yaml_content)} characters")
 
         try:
+            new_namespace = namespace+"-manually-created"
             # Ensure namespace exists (delete and recreate if it does)
-            subprocess.run(['kubectl', 'delete', 'namespace', namespace], capture_output=True)
-            subprocess.run(['kubectl', 'create', 'namespace', namespace], capture_output=True)
+            subprocess.run(['kubectl', 'create', 'namespace', new_namespace], capture_output=True)
             
             # The '-' argument tells 'kubectl apply' to read from standard input.
             process = subprocess.Popen(
-                ['kubectl', 'apply', '-n', namespace, '-f', '-'],
+                ['kubectl', 'apply', '-n', new_namespace, '-f', '-'],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -323,7 +323,7 @@ class FormTab:
             status_message = f"An unexpected error occurred: {e}"
             output = ""
 
-        return f"🔧 Apply YAML to OpenShift:\n\n**Namespace:** {namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
+        return f"🔧 Apply YAML to OpenShift:\n\n**Namespace:** {new_namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
 
     def generate_helm(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str], resources_yaml: str = "") -> str:
         """Step 2: Generate Helm chart by taking resources and creating a Helm chart structure"""
