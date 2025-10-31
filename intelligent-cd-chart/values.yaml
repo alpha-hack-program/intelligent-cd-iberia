@@ -58,6 +58,13 @@ gradioUI:
   exposure:
     type: "route" # Type of exposure: none, ingress, or route
 
+  # Enable this to Apply resources from Gradio to the Cluster
+  serviceAccount:
+    create: true
+    name: "gradio"
+    rbac:
+      clusterRole: "cluster-admin" # cluster-admin / view / edit
+
   config:
     argocd:
       base_url: "https://openshift-gitops-server.openshift-gitops:443"

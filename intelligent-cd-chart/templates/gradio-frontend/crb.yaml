@@ -1,0 +1,19 @@
+{{- if .Values.gradioUI.serviceAccount.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.gradioUI.serviceAccount.name }}-{{ .Values.gradioUI.serviceAccount.rbac.clusterRole | default "cluster-admin" }}
+  labels:
+    app: {{ .Values.gradioUI.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.gradioUI.serviceAccount.name }}
+    namespace: {{ $.Values.global.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.gradioUI.serviceAccount.rbac.clusterRole | default "cluster-admin" }}
+{{- end }}

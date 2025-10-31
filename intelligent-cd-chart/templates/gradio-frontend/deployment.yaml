@@ -21,7 +21,7 @@ spec:
       #   checksum/config: {{ printf "%s-%s-%s-%s-%s-%s-%s" (.Values.gradioUI.config.form_tab.sampling_params | toJson) (.Values.gradioUI.config.form_tab.tools | toJson) (.Values.gradioUI.config.chat_tab.sampling_params | toJson) (.Values.gradioUI.config.chat_tab.tools | toJson) (.Values.gradioUI.config.argocd | toJson) (tpl ($.Files.Get "conf/app/chat_prompt.txt") .) (tpl ($.Files.Get "conf/app/form_prompt.txt") .) | sha256sum | trunc 63 }}
     spec:
       terminationGracePeriodSeconds: 5
-      serviceAccountName: "default"
+      serviceAccountName: {{ .Values.gradioUI.serviceAccount.name | default "default" }}
       containers:
         - name: {{ .Values.gradioUI.name }}
           image: "{{ .Values.gradioUI.image.repository }}:{{ .Values.gradioUI.image.tag | default "latest" }}"
