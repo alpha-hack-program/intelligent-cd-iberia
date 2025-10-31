@@ -48,6 +48,8 @@ spec:
             secretKeyRef:
               key: VLLM_API_TOKEN
               name: {{ .Values.llamaStack.name }}-secret
+        - name: VLLM_MAX_TOKENS
+          value: "65536"
         {{- if .Values.mcpServers }}
         - name: MCP_OCP_URL
           valueFrom:
