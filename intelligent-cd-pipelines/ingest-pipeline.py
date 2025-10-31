@@ -23,7 +23,9 @@ def get_folders_config() -> dict:
         ],
         "gitops-documentation": [
             "deployment-configuration-best-practices.md",
-            "namespace-resources-best-practices.md"
+            "namespace-resources-best-practices.md",
+            "argocd-applications-creation-best-practices.md",
+            "github-operations-best-practices.md"
         ]
     }
     
