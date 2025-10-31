@@ -273,8 +273,7 @@ class FormTab:
         self.logger.info("=" * 60)
         self.logger.info("Response Structure Analysis:")
         self.logger.info("=" * 60)
-        self.logger.info(f"Response type: {type(response)}")
-        self.logger.info(f"Response attributes: {dir(response)}")
+
         
         # Log all steps if available
         if hasattr(response, 'steps') and response.steps:
@@ -348,8 +347,7 @@ class FormTab:
         self.logger.info("=" * 60)
         self.logger.info("Response Structure Analysis:")
         self.logger.info("=" * 60)
-        self.logger.info(f"Response type: {type(response)}")
-        self.logger.info(f"Response attributes: {dir(response)}")
+
         
         # Log all steps if available
         if hasattr(response, 'steps') and response.steps:
@@ -393,8 +391,7 @@ class FormTab:
         self.logger.info("=" * 60)
         self.logger.info("Response Structure Analysis:")
         self.logger.info("=" * 60)
-        self.logger.info(f"Response type: {type(response)}")
-        self.logger.info(f"Response attributes: {dir(response)}")
+
         
         # Log all steps if available
         if hasattr(response, 'steps') and response.steps:
@@ -428,8 +425,7 @@ class FormTab:
         self.logger.info("=" * 60)
         self.logger.info("Response Structure Analysis:")
         self.logger.info("=" * 60)
-        self.logger.info(f"Response type: {type(response)}")
-        self.logger.info(f"Response attributes: {dir(response)}")
+
         
         # Log all steps if available
         if hasattr(response, 'steps') and response.steps:

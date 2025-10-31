@@ -211,74 +211,16 @@ class ChatTab:
                 stream=False,  # Keep non-streaming for now
             )
             
-            # Debug: Print response structure (keep for logging)
-            self.logger.info(f"Response type: {type(response)}")
-            self.logger.info(f"Response attributes: {dir(response)}")
+            # Log response structure for debugging
+            self.logger.info("=" * 60)
+            self.logger.info("Response Structure Analysis:")
+            self.logger.info("=" * 60)
             
-            # Extract thinking steps from response.steps if available
+            # Log all steps if available
             if hasattr(response, 'steps') and response.steps:
-                self.logger.info(f"Found {len(response.steps)} steps")
+                self.logger.info(f"Number of steps: {len(response.steps)}")
                 for i, step in enumerate(response.steps):
-                    self.logger.info(f"Step {i}: {type(step)} - {dir(step)}")
-                    
-                    # Parse ReActAgent step structure
-                    step_content = ""
-                    step_title = f"Step {i+1}"
-                    
-                    # Check if this is an InferenceStep with api_model_response
-                    if hasattr(step, 'api_model_response') and hasattr(step.api_model_response, 'content'):
-                        try:
-                            # Parse the JSON content from the ReActAgent response
-                            content_json = json.loads(step.api_model_response.content)
-                            
-                            # Extract thought if available
-                            if 'thought' in content_json and content_json['thought']:
-                                step_content = content_json['thought']
-                                step_title = "🧠 Thinking"
-                                thinking_steps.append({
-                                    "title": step_title,
-                                    "content": step_content.strip()
-                                })
-                            
-                            # Extract action if available
-                            if 'action' in content_json and content_json['action']:
-                                action = content_json['action']
-                                if isinstance(action, dict) and 'tool_name' in action:
-                                    action_content = f"Using tool: {action['tool_name']}"
-                                    if 'tool_params' in action and action['tool_params']:
-                                        params_str = ", ".join([f"{p.get('name', 'param')}={p.get('value', '')}" for p in action['tool_params']])
-                                        action_content += f" with parameters: {params_str}"
-                                    
-                                    thinking_steps.append({
-                                        "title": "🔧 Action",
-                                        "content": action_content
-                                    })
-                            
-                            # Extract answer if available (this will be the final response)
-                            if 'answer' in content_json and content_json['answer']:
-                                step_content = content_json['answer']
-                                step_title = "📋 Result"
-                                thinking_steps.append({
-                                    "title": step_title,
-                                    "content": step_content.strip()
-                                })
-                                
-                        except json.JSONDecodeError as e:
-                            self.logger.warning(f"Failed to parse JSON content from step {i}: {e}")
-                            # Fallback to string representation
-                            step_content = str(step.api_model_response.content)
-                            thinking_steps.append({
-                                "title": f"💭 Step {i+1}",
-                                "content": step_content.strip()
-                            })
-                    
-                    # Fallback: try other content attributes
-                    elif hasattr(step, 'content'):
-                        step_content = str(step.content)
-                        thinking_steps.append({
-                            "title": f"💭 Step {i+1}",
-                            "content": step_content.strip()
-                        })
+                    self.logger.debug(f"Step {i}: {step}")
             
             # Get final response content - extract only the answer part
             final_content = ""
