@@ -379,7 +379,7 @@ class FormTab:
         self.logger.info(f"  Repository URL: {self.github_gitops_repo}")
 
         # Use pre-initialized agent for step 3
-        message = f"You are my GitHub assistant and you are here to automate my GitHub commits. I will not upload anything myself, but you must use your MCP tools to help me!\n\nYou are given this Kubernetes manifest file. It describes different Kubernetes resources. You must commit the respective YAML files to GitHub.\n\nrepo {self.github_gitops_repo}.\n\nbranch: main\n\ncommit message: \"A real test!\"\n\nFile information:\n\n- path: the metadata name of each YAML file in the repository root folder (for example {namespace}-configmap-env-base.yaml)\n\n- content: the content of that YAML file\n\nDo not answer me with the GitHub call. You must make the call using your MCP tools. Check the YAMLs were uploaded succesfuly and inform the user about the final result.\n\n\n{application_content}"
+        message = f"You are given this Kubernetes manifest file. It describes different Kubernetes resources. Use the ReActAgent to commit the respective YAML to GitHub.\n\nrepo {self.github_gitops_repo}.\n\nbranch: main\n\ncommit message: \"☕🧰 Make it GitOps! ☕🧰\"\n\nFile information:\n\n- path: It will be just one file named {namespace}.yaml with the content of that YAML: \n\n\n{application_content}"
         
         response = self.agent_github.create_turn(
             messages=[{"role": "user", "content": message}],
@@ -409,11 +409,12 @@ class FormTab:
 
     def generate_argocd_app(self, namespace: str) -> str:
         """Step 4: Generate ArgoCD Application manifest using repo, folder name, etc."""
+        new_namespace = namespace+"-gitops"
         self.logger.info(f"Step 4 - Generate ArgoCD App:")
-        self.logger.info(f"  Namespace: {namespace}")
+        self.logger.info(f"  Namespace: {new_namespace}")
         self.logger.info(f"  Repository URL: {self.github_gitops_repo}")
 
-        message = f"Generate an ArgoCD Application manifest with the following configuration: Repository URL: {self.github_gitops_repo}, and namespace {namespace}."
+        message = f"Generate an ArgoCD Application manifest with the following configuration: Repository URL: {self.github_gitops_repo}, and namespace {new_namespace}. This special time, the YAMLs are in the root folder of the repository, not in a subfolder."
         
         response = self.agent_argocd.create_turn(
             messages=[{"role": "user", "content": message}],
