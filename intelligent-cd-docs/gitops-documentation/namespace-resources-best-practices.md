@@ -9,7 +9,7 @@ TARGET RESOURCE TYPES (FOCUS ONLY ON THESE 4):
 YAML CLEANING AND SANITIZATION FOR APPLICATION RESOURCES:
 
 METADATA TO REMOVE WHEN CLEANING YAMLS:
-- namespace: Target namespace (use the namespace specified by user)
+- namespace: The namespace is not needed in the resources metadata section.
 - resourceVersion: Cluster-specific version identifier
 - uid: Unique identifier assigned by Kubernetes
 - creationTimestamp: When the resource was created
