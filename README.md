@@ -1,8 +1,13 @@
 # Intelligent CD
 
-This project provides an application that can be deployed to an OpenShift cluster to provide a chat interface to modernize and optimize your cluster using a chat interface.
-
-<img src="docs/images/chatbot.png" alt="Chatbot Interface" width="100" height="100"/>
+<div style="display: flex; align-items: center; margin-bottom: 1em;">
+  <div style="flex: 0 0 auto; margin-right: 24px;">
+    <img src="docs/images/chatbot.png" alt="Chatbot Interface" width="100" height="100"/>
+  </div>
+  <div style="flex: 1;">
+    This project provides an application that can be deployed to an OpenShift cluster to provide a chat interface to modernize and optimize your cluster using a chat interface.
+  </div>
+</div>
 
 ## Features
 
