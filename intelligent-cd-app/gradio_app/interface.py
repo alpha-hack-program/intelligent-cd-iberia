@@ -529,7 +529,7 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
         apply_yaml_btn.click(
             fn=form_tab.apply_yaml,
             inputs=[namespace_input, content_area],
-            outputs=content_area
+            outputs=None
         )
         
         # Generate Helm button functionality

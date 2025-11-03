@@ -8,7 +8,10 @@ import os
 import json
 import ast
 import subprocess
+import random
+import string
 from typing import List
+import gradio as gr
 from llama_stack_client import LlamaStackClient
 from llama_stack_client.lib.agents.react.agent import ReActAgent
 from llama_stack_client.lib.agents.react.tool_parser import ReActOutput
@@ -160,10 +163,10 @@ class FormTab:
             f"\n**Step 2 - Generate Helm:**",
             f"  - Tools: {self.config_generate_helm['tools']}",
             f"  - Temperature: {self.config_generate_helm['sampling_params'].get('temperature', 'default')}",
-            f"\n**Step 3 - Push GitHub:**",
-            f"  - Tools: {self.config_push_github['tools']}",
-            f"  - Temperature: {self.config_push_github['sampling_params'].get('temperature', 'default')}",
-            f"\n**Step 4 - Generate ArgoCD:**",
+            # f"\n**Step 3 - Push GitHub:**",
+            # f"  - Tools: {self.config_push_github['tools']}",
+            # f"  - Temperature: {self.config_push_github['sampling_params'].get('temperature', 'default')}",
+            f"\n**Step 3 - Generate ArgoCD:**",
             f"  - Tools: {self.config_generate_argocd['tools']}",
             f"  - Temperature: {self.config_generate_argocd['sampling_params'].get('temperature', 'default')}",
         ]
@@ -213,7 +216,8 @@ class FormTab:
 
         # Create session for the agent
         if session_name is None:
-            session_name = f"{step_name}_session"
+            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            session_name = f"{step_name}_session_{random_suffix}"
         session = agent.create_session(session_name=session_name)
         
         # Handle both object with .id attribute and direct string return
@@ -312,18 +316,22 @@ class FormTab:
             stdout, stderr = process.communicate(input=yaml_content)
 
             if process.returncode == 0:
-                status_message = "**Apply YAML Function Logged Successfully!** ✅"
-                output = stdout
+                # Show success info message
+                info_message = f"✅ Apply YAML Function Logged Successfully!\n\n**Namespace:** {new_namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Output:**\n{stdout}"
+                gr.Info(info_message)
             else:
-                status_message = "**Apply YAML Function Failed!** ❌"
-                output = f"Error: {stderr}"
+                # Show error info message
+                info_message = f"❌ Apply YAML Function Failed!\n\n**Namespace:** {new_namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Error:**\n{stderr}"
+                gr.Info(info_message)
                 
         except Exception as e:
-            # Assuming kubectl will exist, handle any other unexpected errors
-            status_message = f"An unexpected error occurred: {e}"
-            output = ""
+            # Show exception info message
+            new_namespace = namespace+"-manually-created"
+            info_message = f"⚠️ An unexpected error occurred: {e}\n\n**Namespace:** {new_namespace}\n**YAML Content Length:** {len(yaml_content)} characters"
+            gr.Info(info_message)
 
-        return f"🔧 Apply YAML to OpenShift:\n\n**Namespace:** {new_namespace}\n**YAML Content Length:** {len(yaml_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
+        # Return empty string to leave the right panel intact
+        return ""
 
     def generate_helm(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str], resources_yaml: str = "") -> str:
         """Step 2: Generate Helm chart by taking resources and creating a Helm chart structure"""

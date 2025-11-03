@@ -7,6 +7,8 @@ This module handles the main chat interface with LLM using ReAct methodology.
 import os
 import json
 import ast
+import random
+import string
 from typing import List, Dict
 from llama_stack_client import LlamaStackClient
 from llama_stack_client.lib.agents.react.agent import ReActAgent
@@ -143,7 +145,9 @@ class ChatTab:
         self.logger.info("✅ ReActAgent created successfully")
 
         # Create session for the agent
-        session = agent.create_session(session_name="OCP_Chat_Session")
+        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        session_name = f"OCP_Chat_Session_{random_suffix}"
+        session = agent.create_session(session_name=session_name)
         
         # Handle both object with .id attribute and direct string return
         if hasattr(session, 'id'):
