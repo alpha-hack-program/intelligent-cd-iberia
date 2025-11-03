@@ -34,6 +34,7 @@ export KUBEFLOW_ENDPOINT=$(oc get route ds-pipeline-dspa -n intelligent-cd-pipel
 export BEARER_TOKEN=$(oc whoami --show-token)
 oc delete llsd -n intelligent-cd llama-stack
 oc delete pvc/llama-stack-pvc -n intelligent-cd
+sleep 2
 oc scale deployment gradio --replicas=0 -n intelligent-cd
 python intelligent-cd-pipelines/clean-pipeline.py
 sleep 15
