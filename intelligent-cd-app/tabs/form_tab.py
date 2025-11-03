@@ -115,11 +115,13 @@ class FormTab:
             # Handle dict tools
             if isinstance(tool, dict):
                 tool_copy = tool.copy()
-                
+
+                self.logger.info(f"Tool is a dict: {tool_copy}")
                 # Check if this tool has args with vector_db_names
                 if 'args' in tool_copy and isinstance(tool_copy['args'], dict):
                     args = tool_copy['args'].copy()
-                    
+
+                    self.logger.info(f"Args is a dict: {args}")
                     if 'vector_db_names' in args:
                         names = args['vector_db_names']
                         if isinstance(names, list):
@@ -143,13 +145,19 @@ class FormTab:
         """Get vector store ID by name"""
         try:
             list_response = self.client.vector_stores.list()
-            for vs in list_response:
+            # Access the data attribute which contains the list of VectorStore objects
+            vector_stores = list_response.data if hasattr(list_response, 'data') else list_response
+            
+            for vs in vector_stores:
                 if vs.name == name:
+                    self.logger.info(f"Found vector store '{name}' -> '{vs.id}'")
                     return vs.id
+            
             # If not found by name, assume it might be an ID already
+            self.logger.warning(f"Vector store '{name}' not found, using as ID")
             return name
         except Exception as e:
-            self.logger.warning(f"Error looking up vector store by name: {str(e)}")
+            self.logger.warning(f"Error looking up vector store by name '{name}': {str(e)}")
             return name
     
     def get_config_display(self) -> str:
@@ -265,7 +273,7 @@ class FormTab:
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
 
         # Use pre-initialized agent for step 1
-        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Remove unnecessary fields and format with '---' separators for oc apply."
+        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Remove unnecessary fields and format with '---' separators for oc apply"
         
         response = self.agent_resources.create_turn(
             messages=[{"role": "user", "content": message}],
