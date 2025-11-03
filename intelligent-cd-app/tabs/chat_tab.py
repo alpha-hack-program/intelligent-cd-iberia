@@ -105,15 +105,21 @@ class ChatTab:
         """Get vector store ID by name"""
         try:
             list_response = self.client.vector_stores.list()
-            for vs in list_response:
+            # Access the data attribute which contains the list of VectorStore objects
+            vector_stores = list_response.data if hasattr(list_response, 'data') else list_response
+            
+            for vs in vector_stores:
                 if vs.name == name:
+                    self.logger.info(f"Found vector store '{name}' -> '{vs.id}'")
                     return vs.id
+            
             # If not found by name, assume it might be an ID already
+            self.logger.warning(f"Vector store '{name}' not found, using as ID")
             return name
         except Exception as e:
-            self.logger.warning(f"Error looking up vector store by name: {str(e)}")
+            self.logger.warning(f"Error looking up vector store by name '{name}': {str(e)}")
             return name
-    
+
     def _initialize_agent(self) -> tuple[ReActAgent, str]:
         """Initialize agent and session that will be reused for the entire chat"""
 

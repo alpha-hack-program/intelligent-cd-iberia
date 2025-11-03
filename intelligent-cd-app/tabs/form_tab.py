@@ -273,7 +273,7 @@ class FormTab:
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
 
         # Use pre-initialized agent for step 1
-        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Remove unnecessary fields and format with '---' separators for oc apply"
+        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Remove unnecessary fields and format with '---' separators for oc apply. Make sure to remove the namespace from all the YAMLs as well as the route host from the routes"
         
         response = self.agent_resources.create_turn(
             messages=[{"role": "user", "content": message}],
