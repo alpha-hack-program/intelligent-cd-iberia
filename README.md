@@ -2,13 +2,7 @@
 
 This project provides an application that can be deployed to an OpenShift cluster to provide a chat interface to modernize and optimize your cluster using a chat interface.
 
-![Chatbot Interface](docs/images/chatbot.png)
-
-
-
-
-
-
+<img src="docs/images/chatbot.png" alt="Chatbot Interface" width="100" height="100"/>
 
 ## Features
 
@@ -23,6 +17,107 @@ This project provides an application that can be deployed to an OpenShift cluste
 The following diagram shows the architecture of the Intelligent CD application.
 
 ![Intelligent CD Architecture](docs/images/architecture.svg)
+
+
+## Repository structure
+
+This repository is organized as follows:
+
+1. `ìntelligent-cd-app`: This is the Gradio application that provides the chat interface.
+2. `intelligent-cd-chart`: This is the Helm chart that deploys the Intelligent CD application.
+3. `intelligent-cd-docs`: Contents for the RAG on how to correctly convert the application to GitOps and documentation of a fake app that is supposed to be deployed on OpenShift manually.
+4. `intelligent-cd-pipelines`: This folder contains a set of KubeFlow pipelines to run on OpenShift. As of today, these pipelines are use to ingest the contents of the `intelligent-cd-docs` folder into the RAG.
+
+
+## Prerequisites
+
+This application is prepared to be deployed using ArgoCD on a cluster deployed using the [AI Accelerator](https://github.com/redhat-ai-services/ai-accelerator).
+
+**First**, you need to **create an OpenShift cluster using Demo RedHat**. Please request an environment for tomorrow from our demo platform: [AWS with OpenShift Open Environment](https://catalog.demo.redhat.com/catalog?search=aws&item=babylon-catalog-prod%2Fsandboxes-gpte.sandbox-ocp.prod). Select following in the order form:
+* Activity: `Brand Event`.
+* Purpose: `DemoJam 2026`.
+* Region: `us-east-2` (even if you are in EMEA or APAC, still choose `us-east-2`).
+* OpenShift Version: `4.19`.
+* Control Plane Instance Type: `m6a.4xlarge`.
+
+
+<!-- **Optional**, you can delete all the failed installation pods by running the following command:
+```bash
+oc get pods --all-namespaces | grep -E "Error|Failed" | awk '{print "oc delete pod " $2 " -n " $1}' | bash
+``` -->
+
+
+**Second**, log in to the cluster and install all the components following [their documentation](https://github.com/dgpmakes/ai-accelerator/blob/main/documentation/installation.md#bootstrapping-a-cluster): 
+
+```bash
+git clone https://github.com/dgpmakes/ai-accelerator.git # This is a fork of the original repository removing the default example apps
+cd ai-accelerator
+./bootstrap.sh
+```
+
+**NOTE**: During the installation, you will be asked to select a bootstrap folder. Choose the overlay `3) rhoai-fast-aws-gpu`  to install the latest version of OpenShift AI with GPU support.
+
+<!-- **NOTE**: There is a bug in the current implementation of the AI Accelerator, so the apps get stuck in a pending state waiting indefinitely for other components to be deployed. You can fix it by running the following command:
+```bash
+oc project openshift-gitops
+argocd login --core
+argocd app terminate-op openshift-gitops/openshift-ai-operator; argocd app sync openshift-gitops/openshift-ai-operator
+# When the OpenShift AI operator App is synced, the other apps should be able to deploy
+argocd app list | grep OutOfSync | awk '{print $1}' | xargs -I {} sh -c 'argocd app terminate-op {} && argocd app sync {}'
+``` -->
+
+**Third**, you will need to gather some variables to be used in the application. These variables are stored in the `.env` file. Prepare the following variables:
+
+1. **MaaS Configuration**. You can retrieve them all from 
+- `MODEL_NAME`: Use the following model: `llama-4-scout-17b-16e-w4a16`.
+- `MODEL_API_URL`: Use the following URL: `https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1`.
+- `MODEL_API_TOKEN`: The API token to use to access the model. Retrieve it from MaaS UI.
+
+2. **GitHub MCP Server Configuration**:
+- `GITHUB_PAT`: The API token to use to access the GitHub repositories. Create a new personal access token with the following permissions: `Read and Write access to code, issues, and pull requests`.
+- `GITHUB_MCP_SERVER_TOOLSETS`: Use the following toolsets: `"pull_requests\,repos\,issues"`. Please note that the commas are escaped for the Helm Chart template.
+- `GITHUB_MCP_SERVER_READONLY`: Use the following value: `false`.
+- `GITHUB_GITOPS_REPO`: You can use the following repository: `https://github.com/alpha-hack-program/intelligent-cd-iberia-gitops` or any other you have access to. If you want to use the default one, please ask for the GitHub PAT. This is the repository where the GitOps configuration for the application will be stored.
+
+
+## Deploy the application
+
+All the components can deployed using **ArgoCD**, but as there are several variables to be set, we provide a script that will set the variables and deploy the application using Helm Charts and Kustomize:
+
+1. First, you need to create a `.env` file with the following variables:
+
+```bash
+cp .env.example .env
+```
+
+2. Ensure your python environment has the respective libraries installed:
+
+```bash
+pip install -r intelligent-cd-pipelines/requirements.txt
+```
+
+3. Adapt the values of `.env`and then run the script to deploy the application:
+
+```bash
+./auto-install.sh # This command is idempotent, so just re-execute if you want to apply new configuration or it failed.
+```
+
+4. If you need extra customization, you can modify the values.yaml from the `intelligent-cd-chart/values.yaml`
+
+5. You can use the chat interface to modernize and optimize your cluster. This is exposed here:
+
+```bash
+oc get route gradio -n intelligent-cd --template='https://{{ .spec.host }}/?__theme=light'
+```
+
+> [!CAUTION]
+> **Bug: Llamastack in several namespaces**
+> There is a bug in the current implementation of the Llama Stack operator provided in OpenShift AI. With this bug, the `ClusterRoleBinding` to deploy the Llama Stack Distribution with extra privileges is only created automatically in the first namespace where a Llama Stack Distribution is deployed.
+> If you already deployed the Llama Stack Distribution in a namespace, you can create the CRB manually in the other namespaces by running the following command:
+> ```bash
+> oc adm policy add-cluster-role-to-user system:openshift:scc:anyuid -z llama-stack-sa --rolebinding-name llama-stack-crb-$NAMESPACE -n $NAMESPACE
+> ```
+
 
 
 ## Look & Feel
@@ -57,99 +152,6 @@ Your first question is probably: "OK, what how does it look like?". For that rea
 ![Chat using ServiceNow](docs/images/chat-check-servicenow.png)
 
 
-## Repository structure
-
-This repository is organized as follows:
-
-1. `ìntelligent-cd-app`: This is the Gradio application that provides the chat interface.
-2. `intelligent-cd-chart`: This is the Helm chart that deploys the Intelligent CD application.
-3. `intelligent-cd-docs`: Fake documentation of a fake app that is supposed to be deployed on OpenShift manually.
-4. `intelligent-cd-pipelines`: This folder contains a set of KubeFlow pipelines to run on OpenShift.
-
-In order to deploy the Intelligent CD application, without customizing it, you can use the ArgoCD application `app-intelligent-cd.yaml` that is provided in this repository.
-
-
-## Prerequisites
-
-This application is prepared to be deployed using ArgoCD on a cluster deployed using the [AI Accelerator](https://github.com/redhat-ai-services/ai-accelerator).
-
-**First**, As this repository is inside the Red Hat Consulting organization GitLab, you need to create a personal access token in this [URL](https://gitlab.consulting.redhat.com/-/user_settings/personal_access_tokens) with the following permissions: `read_repository`. Add the token to the `.env` file.
-
-
-**Second**, you need to **create an OpenShift cluster using Demo RedHat**. Please request an environment for tomorrow from our demo platform: [AWS with OpenShift Open Environment](https://catalog.demo.redhat.com/catalog?search=aws&item=babylon-catalog-prod%2Fsandboxes-gpte.sandbox-ocp.prod). Select following in the order form:
-* Activity: `Brand Event`.
-* Purpose: `DemoJam 2026`.
-* Region: `us-east-2` (even if you are in EMEA or APAC, still choose `us-east-2`).
-* OpenShift Version: `4.19`.
-* Control Plane Instance Type: `m6a.4xlarge`.
-
-
-**Optional**, you can delete all the failed installation pods by running the following command:
-```bash
-oc get pods --all-namespaces | grep -E "Error|Failed" | awk '{print "oc delete pod " $2 " -n " $1}' | bash
-```
-
-
-**Third**, log in to the cluster and install all the components following [their documentation](https://github.com/redhat-ai-services/ai-accelerator/blob/main/documentation/installation.md#bootstrapping-a-cluster): 
-
-```bash
-git clone https://github.com/dgpmakes/ai-accelerator.git # This is a fork of the original repository removing the default example apps
-cd ai-accelerator
-./bootstrap.sh
-```
-
-**NOTE**: During the installation, you will be asked to select a bootstrap folder. Choose the overlay `3) rhoai-fast-aws-gpu`  to install the latest version of OpenShift AI with GPU support.
-
-**NOTE**: There is a bug in the current implementation of the AI Accelerator, so the apps get stuck in a pending state waiting indefinitely for other components to be deployed. You can fix it by running the following command:
-```bash
-oc project openshift-gitops
-argocd login --core
-argocd app terminate-op openshift-gitops/openshift-ai-operator; argocd app sync openshift-gitops/openshift-ai-operator
-# When the OpenShift AI operator App is synced, the other apps should be able to deploy
-argocd app list | grep OutOfSync | awk '{print $1}' | xargs -I {} sh -c 'argocd app terminate-op {} && argocd app sync {}'
-```
-
-
-
-
-
-## Deploy the application
-
-All the components can deployed using **ArgoCD**, but as there are several variables to be set, we provide a script that will set the variables and deploy the application. 
-
-1. First, you need to create a `.env` file with the following variables:
-
-```bash
-cp .env.example .env
-```
-
-2. Ensure your python environment has the respective libraries installed:
-
-```bash
-pip install -r intelligent-cd-pipelines/requirements.txt
-```
-
-3. Adapt the values of `.env`and then run the script to deploy the application:
-
-```bash
-./auto-install.sh
-```
-
-4. If you need extra customization, you can modify the values.yaml from the `intelligent-cd-chart/values.yaml`
-
-5. You can use the chat interface to modernize and optimize your cluster. This is exposed here:
-
-```bash
-oc get route gradio -n intelligent-cd --template='https://{{ .spec.host }}/?__theme=light'
-```
-
-> [!CAUTION]
-> **Bug: Llamastack in several namespaces**
-> There is a bug in the current implementation of the Llama Stack operator provided in OpenShift AI. With this bug, the `ClusterRoleBinding` to deploy the Llama Stack Distribution with extra privileges is only created automatically in the first namespace where a Llama Stack Distribution is deployed.
-> If you already deployed the Llama Stack Distribution in a namespace, you can create the CRB manually in the other namespaces by running the following command:
-> ```bash
-> oc adm policy add-cluster-role-to-user system:openshift:scc:anyuid -z llama-stack-sa --rolebinding-name llama-stack-crb-$NAMESPACE -n $NAMESPACE
-> ```
 
 
 ## MCP Servers configuration
