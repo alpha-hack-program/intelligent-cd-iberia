@@ -23,10 +23,36 @@ echo "✅ Environment variables configured"
 #####################################
 
 echo -e "\n🔐 Step 2: Retrieving ArgoCD API token..."
+# Detect ArgoCD route name (try both possible names)
+ARGOCD_ROUTE_NAME=""
+ARGOCD_NAMESPACE="openshift-gitops"
 
-ARGOCD_BASE_URL=$(oc get route openshift-gitops-server -n openshift-gitops --template='https://{{ .spec.host }}')
+if oc get route argocd-server -n $ARGOCD_NAMESPACE &>/dev/null; then
+  ARGOCD_ROUTE_NAME="argocd-server"
+elif oc get route openshift-gitops-server -n $ARGOCD_NAMESPACE &>/dev/null; then
+  ARGOCD_ROUTE_NAME="openshift-gitops-server"
+else
+  echo "❌ Error: Could not find ArgoCD route. Tried 'argocd-server' and 'openshift-gitops-server' in namespace $ARGOCD_NAMESPACE"
+  exit 1
+fi
+
+ARGOCD_BASE_URL=$(oc get route $ARGOCD_ROUTE_NAME -n $ARGOCD_NAMESPACE --template='https://{{ .spec.host }}')
+echo "ARGOCD_BASE_URL: $ARGOCD_BASE_URL"
 ARGOCD_ADMIN_USERNAME=admin
-ARGOCD_ADMIN_PASSWORD=$(oc get secret openshift-gitops-cluster -n openshift-gitops --template='{{index .data "admin.password"}}' | base64 -d)
+
+if oc get secret argocd-cluster -n $ARGOCD_NAMESPACE &>/dev/null; then
+  ARGOCD_SECRET_NAME="argocd-cluster"
+elif oc get secret openshift-gitops-cluster -n $ARGOCD_NAMESPACE &>/dev/null; then
+  ARGOCD_SECRET_NAME="openshift-gitops-cluster"
+else
+  echo "❌ Error: Could not find ArgoCD secret. Tried 'argocd-cluster' and 'openshift-gitops-cluster' in namespace $ARGOCD_NAMESPACE"
+  exit 1
+fi
+
+echo "ARGOCD_SECRET_NAME: $ARGOCD_SECRET_NAME"
+
+ARGOCD_ADMIN_PASSWORD=$(oc get secret $ARGOCD_SECRET_NAME -n $ARGOCD_NAMESPACE --template='{{index .data "admin.password"}}' | base64 -d)
+echo "ARGOCD_ADMIN_PASSWORD: $ARGOCD_ADMIN_PASSWORD"
 ARGOCD_API_TOKEN=$(curl -k -s $ARGOCD_BASE_URL/api/v1/session \
   -H 'Content-Type:application/json' \
   -d '{"username":"'"$ARGOCD_ADMIN_USERNAME"'","password":"'"$ARGOCD_ADMIN_PASSWORD"'"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
