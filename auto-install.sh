@@ -248,6 +248,8 @@ echo -e "\n🗄️ Step 10: Populating the vector database..."
 
 export KUBEFLOW_ENDPOINT=$(oc get route ds-pipeline-dspa -n intelligent-cd-pipelines --template="https://{{.spec.host}}")
 export BEARER_TOKEN=$(oc whoami --show-token)
+# Disable SSL verification for self-signed certificates in OpenShift
+export SSL_VERIFY=false
 python intelligent-cd-pipelines/ingest-pipeline.py
 
 #####################################

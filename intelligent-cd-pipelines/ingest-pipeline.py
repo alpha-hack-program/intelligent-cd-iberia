@@ -237,12 +237,17 @@ if __name__ == "__main__":
     # Route: https://ds-pipeline-dspa-rhoai-playground.apps.$CLUSTER_DOMAIN
     kubeflow_endpoint = os.environ["KUBEFLOW_ENDPOINT"]
     bearer_token = os.environ["BEARER_TOKEN"]
+    # Set to "false" to disable SSL verification for self-signed certificates
+    ssl_verify = os.environ.get("SSL_VERIFY", "true").lower() != "false"
 
     # 1. Create KFP client
     print(f'Connecting to Data Science Pipelines: {kubeflow_endpoint}')
+    print(f'SSL verification: {ssl_verify}')
     kfp_client = Client(
         host=kubeflow_endpoint,
-        existing_token=bearer_token
+        existing_token=bearer_token,
+        ssl_ca_cert=None if not ssl_verify else None,
+        verify_ssl=ssl_verify
     )
 
     # 2. Create pipeline object
