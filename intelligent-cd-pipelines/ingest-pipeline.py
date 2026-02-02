@@ -37,11 +37,13 @@ def get_folders_config() -> dict:
 
 
 
-@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5"])
+@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5", "requests"])
 def ingest_documents(folders_config: dict) -> None:
     """Processes all folders (DB IDs) using the hardcoded configuration."""
-    from llama_stack_client import RAGDocument, LlamaStackClient
+    from llama_stack_client import LlamaStackClient
     import os
+    import requests
+    import io
     from datetime import datetime
     
     # GitHub repository details
@@ -69,37 +71,15 @@ def ingest_documents(folders_config: dict) -> None:
             print(f"Warning: No files configured for folder '{folder_name}'!")
             continue
         
-        # Base URL for raw file content
-        raw_base_url = f"https://github.com/{project_path}/-/raw/{git_branch}"
-        
-        # Process each file
-        documents = []
-        for file_name in files:
-            file_path = f"{git_docs_path}/{folder_name}/{file_name}"
-            raw_url = f"{raw_base_url}/{file_path}"
-            
-            print(f"Processing file: {file_name}")
-            print(f"Raw URL: {raw_url}")
-            
-            # Create RAG document
-            doc = RAGDocument(
-                document_id=f"{folder_name}/{file_name}",
-                content=raw_url,
-                mime_type="text/plain",
-                metadata={
-                    "source": git_repo,
-                    "url": raw_url,
-                    "title": file_name,
-                    "date": datetime.now().strftime("%Y%m%d")
-                },
-            )
-            documents.append(doc)
-        
         # Initialize LlamaStack client
         client = LlamaStackClient(
             base_url=os.getenv("LLAMA_STACK_URL"),
             timeout=180.0
         )
+        
+        # Base URL for raw file content
+        # Format: https://raw.githubusercontent.com/{project_path}/refs/heads/{branch}
+        raw_base_url = f"https://raw.githubusercontent.com/{project_path}/refs/heads/{git_branch}"
         
         # Get embedding model and dimension
         print(f"\nFinding embedding model:")
@@ -166,14 +146,54 @@ def ingest_documents(folders_config: dict) -> None:
             vector_store_id = vector_store.id
             print(f"Vector store '{vector_store_name}' created successfully with ID: {vector_store_id}")
         
-        # Insert the documents using the identifier
-        print(f"Ingesting {len(documents)} documents into vector store '{vector_store_name}' (ID: {vector_store_id})")
-        client.tool_runtime.rag_tool.insert(
-            documents=documents,
-            vector_db_id=vector_store_id,
-            chunk_size_in_tokens=1024,
-        )
-        print(f"Successfully ingested documents for '{vector_store_name}'")
+        # Ingest files using vector_stores.files API
+        print(f"Ingesting {len(files)} files into vector store '{vector_store_name}' (ID: {vector_store_id})")
+        
+        for file_name in files:
+            file_path = f"{git_docs_path}/{folder_name}/{file_name}"
+            raw_url = f"{raw_base_url}/{file_path}"
+            
+            print(f"Processing file: {file_name}")
+            print(f"Raw URL: {raw_url}")
+            
+            # Download file from GitHub
+            try:
+                response = requests.get(raw_url, timeout=30)
+                response.raise_for_status()
+                
+                # Create in-memory file-like object
+                file_content = io.BytesIO(response.content)
+                
+                # Upload file to Llama Stack with metadata
+                file_info = client.files.create(
+                    file=(file_name, file_content),
+                    purpose="assistants"
+                )
+                
+                print(f"  Uploaded file '{file_name}' with ID: {file_info.id}")
+                
+                # Add file to vector store
+                vector_store_file = client.vector_stores.files.create(
+                    vector_store_id=vector_store_id,
+                    file_id=file_info.id,
+                    chunking_strategy={
+                        "type": "static",
+                        "static": {
+                            "max_chunk_size_tokens": 1024,
+                            "chunk_overlap_tokens": 200,
+                        },
+                    },
+                )
+                print(f"  Added file to vector store: {vector_store_file}")
+                        
+            except requests.RequestException as e:
+                print(f"  Error downloading file '{file_name}': {e}")
+                continue
+            except Exception as e:
+                print(f"  Error processing file '{file_name}': {e}")
+                continue
+        
+        print(f"Successfully ingested {len(files)} files for '{vector_store_name}'")
     
     print(f"\n=== Completed processing all {len(folders_config)} folders ===")
 
