@@ -6,7 +6,7 @@ from kfp.client import Client
 import os
 from datetime import datetime
 
-@dsl.component(base_image="python:3.13")
+@dsl.component(base_image="python:3.14")
 def get_folders_config() -> dict:
     """Returns a hardcoded dictionary with folder names and their files."""
     
@@ -37,7 +37,7 @@ def get_folders_config() -> dict:
 
 
 
-@dsl.component(base_image="python:3.13", packages_to_install=["llama-stack-client==0.2.23"])
+@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5"])
 def ingest_documents(folders_config: dict) -> None:
     """Processes all folders (DB IDs) using the hardcoded configuration."""
     from llama_stack_client import RAGDocument, LlamaStackClient
@@ -101,7 +101,26 @@ def ingest_documents(folders_config: dict) -> None:
             timeout=180.0
         )
         
+        # Get embedding model and dimension
+        print(f"\nFinding embedding model:")
+        models = client.models.list()
+        embedding_model_id = None
+        embedding_dimension = 768  # Default for granite-embedding-125m
         
+        for model in models:
+            if model.model_type == "embedding":
+                embedding_model_id = model.identifier
+                # Get dimension from metadata or model attribute
+                embedding_dimension = (
+                    (model.metadata or {}).get('embedding_dimension') or
+                    getattr(model, 'embedding_dimension', None) or
+                    768
+                )
+                print(f"  Model: {embedding_model_id}, Dimension: {embedding_dimension}")
+                break
+        
+        if not embedding_model_id:
+            raise RuntimeError("No embedding model found. Please ensure an embedding model is registered in Llama Stack.")
         
         # Check if vector database exists by listing all and filtering by name
         # OpenAI does not provide mechanism to retrive by name 
@@ -116,22 +135,35 @@ def ingest_documents(folders_config: dict) -> None:
             if vs.name == vector_store_name:
                 vector_store_id = vs.id
         
+        # # Delete if exists, then exit
+        # if vector_store_id:
+        #     print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}, deleting it...")
+        #     client.vector_stores.delete(vector_store_id=vector_store_id)
+        #     print(f"Deleted vector store '{vector_store_name}', exiting...")
+        #     return
+        
         # Create if doesn't exist
-        if vector_store_id:
-            print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}")
-        else:
+        if not vector_store_id:
             print(f"Vector store '{vector_store_name}' not found, creating it...")
             
             # Create the vector database
-            # https://github.com/llamastack/llama-stack-client-python/blob/release-0.2.22/api.md
-            response = client.vector_stores.create(
+            # https://github.com/llamastack/llama-stack-client-python/blob/v0.3.5/api.md
+            # The API requires a model but doesn't accept it as a direct parameter
+            # Pass it via extra_body
+            provider_id = "milvus"  # Use milvus provider as configured
+            print(f"Using embedding model: {embedding_model_id}")
+            print(f"Embedding dimension: {embedding_dimension}")
+            print(f"Provider ID: {provider_id}")
+            
+            vector_store = client.vector_stores.create(
                 name=vector_store_name,
-                embedding_model="granite-embedding-125m",
-                embedding_dimension=768,
-                provider_id="milvus"
+                extra_body={
+                    "embedding_model": embedding_model_id,
+                    "embedding_dimension": embedding_dimension,
+                    "provider_id": provider_id
+                }
             )
-            # Response has 'id' attribute, not 'identifier'
-            vector_store_id = response.id
+            vector_store_id = vector_store.id
             print(f"Vector store '{vector_store_name}' created successfully with ID: {vector_store_id}")
         
         # Insert the documents using the identifier
