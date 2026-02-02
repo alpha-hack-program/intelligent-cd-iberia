@@ -44,6 +44,11 @@ spec:
           endpoint: $LLS_ENDPOINT
           websearch:
             tavilyApiKey: $TAVILY_SEARCH_API_KEY
+          embeddings:
+            mode: $EMBEDDINGS_MODEL_REMOTE
+            model: $EMBEDDINGS_MODEL_NAME
+            url: $EMBEDDINGS_API_URL
+            apiToken: $EMBEDDINGS_MODEL_API_TOKEN
           route:
             enabled: true
         RAG:

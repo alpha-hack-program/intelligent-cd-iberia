@@ -68,7 +68,15 @@ echo ""
 echo "🤖 OLS Configuration:"
 echo "  Model: $MODEL_NAME"
 echo "  URL: $MODEL_API_URL"
-echo "  Token: ${MODEL_API_TOKEN:0:10}..."
+echo "  API Token: ${MODEL_API_TOKEN:0:10}..."
+echo ""
+echo "🔤 Embeddings Configuration:"
+echo "  Remote Mode? ${EMBEDDINGS_MODEL_REMOTE}"
+if [ "$EMBEDDINGS_MODEL_REMOTE" = "true" ]; then
+echo "  URL: ${EMBEDDINGS_MODEL_API_URL}"
+echo "  API Token: ${EMBEDDINGS_MODEL_API_TOKEN:0:10}..."
+echo "  Max Tokens: ${EMBEDDINGS_MODEL_MAX_TOKENS}"
+fi
 echo ""
 echo "🚀 ArgoCD Configuration:"
 echo "  Base URL: $ARGOCD_BASE_URL"
@@ -130,7 +138,7 @@ echo -e " [OK]"
 
 # 2. Wait for Cluster Observability Operator
 echo -n "⏳ Waiting for Cluster Observability Operator to be ready..."
-while [[ $(oc get csv -n openshift-operators -l operators.coreos.com/cluster-observability-operator.openshift-operators -o 'jsonpath={..status.phase}' 2>/dev/null) != "Succeeded" ]]; do
+while [[ $(oc get csv -n openshift-opentelemetry-operator -l olm.copiedFrom=openshift-cluster-observability-operator -o 'jsonpath={.items[0].status.phase}' 2>/dev/null) != "Succeeded" ]]; do
     echo -n "⏳" && sleep 3
 done
 echo -e " [OK]"
@@ -163,6 +171,10 @@ helm template intelligent-cd-chart \
 --set inference.model="$MODEL_NAME" \
 --set inference.url="$MODEL_API_URL" \
 --set inference.apiToken="$MODEL_API_TOKEN" \
+--set llamaStack.embeddings.remote="${EMBEDDINGS_MODEL_REMOTE}" \
+--set llamaStack.embeddings.url="${EMBEDDINGS_MODEL_API_URL}" \
+--set llamaStack.embeddings.apiToken="${EMBEDDINGS_MODEL_API_TOKEN}" \
+--set llamaStack.embeddings.maxTokens="${EMBEDDINGS_MODEL_MAX_TOKENS}" \
 --set gradioUI.config.argocd.base_url="$ARGOCD_BASE_URL" \
 --set gradioUI.config.argocd.api_token="$ARGOCD_API_TOKEN" \
 --set gradioUI.config.github.pat="$GITHUB_PAT" \
@@ -184,6 +196,12 @@ helm template intelligent-cd-chart \
 #   MODEL_NAME="$MODEL_NAME" \
 #   MODEL_API_URL="$MODEL_API_URL" \
 #   MODEL_API_TOKEN="$MODEL_API_TOKEN" \
+#   EMBEDDINGS_MODEL_REMOTE="${EMBEDDINGS_MODEL_REMOTE}" \
+#   EMBEDDINGS_API_URL="${EMBEDDINGS_MODEL_API_URL}" \
+#   EMBEDDINGS_MODEL_API_TOKEN="${EMBEDDINGS_MODEL_API_TOKEN}" \
+#   EMBEDDINGS_MODEL_MAX_TOKENS="${EMBEDDINGS_MODEL_MAX_TOKENS}" \
+#   VLLM_EMBEDDING_TLS_VERIFY="${VLLM_EMBEDDING_TLS_VERIFY:-true}" \
+#   VLLM_EMBEDDING_API_TOKEN="${VLLM_EMBEDDING_API_TOKEN:-}" \
 #   ARGOCD_BASE_URL="$ARGOCD_BASE_URL" \
 #   ARGOCD_API_TOKEN="$ARGOCD_API_TOKEN" \
 #   GITHUB_PAT="$GITHUB_PAT" \
@@ -220,7 +238,7 @@ echo "✅ All pods are ready!"
 echo -e "\n🗄️ Step 8: Deploying the LLS Playground..."
 
 helm template components/lls-playground \
---set clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
+--set global.clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
 --set llsEndpoint="http://llama-stack-service.intelligent-cd.svc.cluster.local:8321" \
 | oc apply -f -
 

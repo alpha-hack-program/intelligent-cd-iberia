@@ -12,7 +12,7 @@ inference:
 llamaStack:
   name: llama-stack
   # Optional: Override the default distribution name "rh-dev" with a custom image
-  image: "registry.redhat.io/rhoai/odh-llama-stack-core-rhel9:v3.2"
+  # image: "registry.redhat.io/rhoai/odh-llama-stack-core-rhel9:v3.2"
   route:
     enabled: true
   postgresql:
@@ -23,6 +23,11 @@ llamaStack:
     password: "SecurePassword123"  # Change this for production deployments
     storageSize: "20Gi"
     ssl: false
+  embeddings:
+    remote: false
+    url: ""
+    apiToken: ""
+    maxTokens: ""
   opentelemetry:
     enabled: true
     bucketNameSuffix: "tempo"
