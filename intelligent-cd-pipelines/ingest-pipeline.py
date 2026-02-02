@@ -36,30 +36,59 @@ def get_folders_config() -> dict:
     return folders_config
 
 
-
-@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5", "requests"])
-def ingest_documents(folders_config: dict) -> None:
-    """Processes all folders (DB IDs) using the hardcoded configuration."""
+@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5"])
+def create_vector_stores(folders_config: dict) -> dict:
+    """Creates vector stores for all folders in the configuration.
+    
+    Args:
+        folders_config: Dictionary mapping folder names to their file lists
+        
+    Returns:
+        folders_config: The same folders_config structure (vector stores are now created)
+    """
     from llama_stack_client import LlamaStackClient
     import os
-    import requests
-    import io
-    from datetime import datetime
     
-    # GitHub repository details
-    git_repo = os.getenv("GIT_REPO", "https://github.com/alpha-hack-program/intelligent-cd-iberia.git")
-    git_branch = os.getenv("GIT_BRANCH", "main")
-    git_docs_path = os.getenv("GIT_DOCS_PATH", "intelligent-cd-docs")
+    # Get Llama Stack URL from environment
+    llama_stack_url = os.getenv("LLAMA_STACK_URL")
+    if not llama_stack_url:
+        raise ValueError("LLAMA_STACK_URL environment variable is required")
     
-    # Extract project ID from GitHub URL
-    import re
-    project_match = re.search(r'github\.com/([^/]+/[^/]+)\.git', git_repo)
-    if not project_match:
-        print(f"Error: Could not extract project path from GitHub URL: {git_repo}")
-        import sys
-        sys.exit(1)
+    # Initialize LlamaStack client
+    client = LlamaStackClient(
+        base_url=llama_stack_url,
+        timeout=180.0
+    )
     
-    project_path = project_match.group(1)
+    # Get embedding model and dimension
+    print(f"\nFinding embedding model:")
+    models = client.models.list()
+    embedding_model_id = None
+    embedding_dimension = 768  # Default for granite-embedding-125m
+    
+    for model in models:
+        if model.model_type == "embedding":
+            embedding_model_id = model.identifier
+            # Get dimension from metadata or model attribute
+            embedding_dimension = (
+                (model.metadata or {}).get('embedding_dimension') or
+                getattr(model, 'embedding_dimension', None) or
+                768
+            )
+            print(f"  Model: {embedding_model_id}, Dimension: {embedding_dimension}")
+            break
+    
+    if not embedding_model_id:
+        raise RuntimeError("No embedding model found. Please ensure an embedding model is registered in Llama Stack.")
+    
+    # List all existing vector stores
+    print(f"\nListing all vector stores:")
+    list_response = client.vector_stores.list()
+    existing_stores = {}
+    for vs in list_response:
+        print(f"  - ID: {vs.id}, Name: {vs.name}")
+        existing_stores[vs.name] = vs.id
+    
     print(f"Processing {len(folders_config)} folders from configuration")
     
     # Process each folder
@@ -71,51 +100,10 @@ def ingest_documents(folders_config: dict) -> None:
             print(f"Warning: No files configured for folder '{folder_name}'!")
             continue
         
-        # Initialize LlamaStack client
-        client = LlamaStackClient(
-            base_url=os.getenv("LLAMA_STACK_URL"),
-            timeout=180.0
-        )
-        
-        # Base URL for raw file content
-        # Format: https://raw.githubusercontent.com/{project_path}/refs/heads/{branch}
-        raw_base_url = f"https://raw.githubusercontent.com/{project_path}/refs/heads/{git_branch}"
-        
-        # Get embedding model and dimension
-        print(f"\nFinding embedding model:")
-        models = client.models.list()
-        embedding_model_id = None
-        embedding_dimension = 768  # Default for granite-embedding-125m
-        
-        for model in models:
-            if model.model_type == "embedding":
-                embedding_model_id = model.identifier
-                # Get dimension from metadata or model attribute
-                embedding_dimension = (
-                    (model.metadata or {}).get('embedding_dimension') or
-                    getattr(model, 'embedding_dimension', None) or
-                    768
-                )
-                print(f"  Model: {embedding_model_id}, Dimension: {embedding_dimension}")
-                break
-        
-        if not embedding_model_id:
-            raise RuntimeError("No embedding model found. Please ensure an embedding model is registered in Llama Stack.")
-        
-        # Check if vector database exists by listing all and filtering by name
-        # OpenAI does not provide mechanism to retrive by name 
-        # https://platform.openai.com/docs/api-reference/vector-stores/retrieve
-        # List all vector stores and find one with matching name
-        print(f"\nListing all vector stores:")
-        list_response = client.vector_stores.list()
         vector_store_name = folder_name
-        vector_store_id = None
-        for vs in list_response:
-            print(f"  - ID: {vs.id}, Name: {vs.name}")
-            if vs.name == vector_store_name:
-                vector_store_id = vs.id
+        vector_store_id = existing_stores.get(vector_store_name)
         
-        # # Delete if exists, then exit
+        # Delete if exists, then exit
         # if vector_store_id:
         #     print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}, deleting it...")
         #     client.vector_stores.delete(vector_store_id=vector_store_id)
@@ -145,6 +133,78 @@ def ingest_documents(folders_config: dict) -> None:
             )
             vector_store_id = vector_store.id
             print(f"Vector store '{vector_store_name}' created successfully with ID: {vector_store_id}")
+        else:
+            print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}")
+    
+    # Return the same folders_config structure
+    return folders_config
+
+
+@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5", "requests"])
+def ingest_documents(folders_config: dict) -> None:
+    """Ingests files into vector stores for all folders in the configuration.
+    
+    Args:
+        folders_config: Dictionary mapping folder names to their file lists
+    """
+    from llama_stack_client import LlamaStackClient
+    import os
+    import requests
+    import io
+    import re
+    from datetime import datetime
+    
+    # Get environment variables
+    llama_stack_url = os.getenv("LLAMA_STACK_URL")
+    git_repo = os.getenv("GIT_REPO", "https://github.com/alpha-hack-program/intelligent-cd-iberia.git")
+    git_branch = os.getenv("GIT_BRANCH", "main")
+    git_docs_path = os.getenv("GIT_DOCS_PATH", "intelligent-cd-docs")
+    
+    if not llama_stack_url:
+        raise ValueError("LLAMA_STACK_URL environment variable is required")
+    
+    # Initialize LlamaStack client
+    client = LlamaStackClient(
+        base_url=llama_stack_url,
+        timeout=180.0
+    )
+    
+    # Extract project ID from GitHub URL
+    project_match = re.search(r'github\.com/([^/]+/[^/]+)\.git', git_repo)
+    if not project_match:
+        raise ValueError(f"Error: Could not extract project path from GitHub URL: {git_repo}")
+    
+    project_path = project_match.group(1)
+    
+    # Base URL for raw file content
+    # Format: https://raw.githubusercontent.com/{project_path}/refs/heads/{branch}
+    raw_base_url = f"https://raw.githubusercontent.com/{project_path}/refs/heads/{git_branch}"
+    
+    print(f"Processing {len(folders_config)} folders from configuration")
+    
+    # Process each folder
+    for folder_name, files in folders_config.items():
+        print(f"\n=== Processing folder: {folder_name} ===")
+        print(f"Files to process: {files}")
+        
+        if not files:
+            print(f"Warning: No files configured for folder '{folder_name}'!")
+            continue
+        
+        # Find vector store by name
+        print(f"\nFinding vector store for '{folder_name}'...")
+        list_response = client.vector_stores.list()
+        vector_store_name = folder_name
+        vector_store_id = None
+        for vs in list_response:
+            if vs.name == vector_store_name:
+                vector_store_id = vs.id
+                print(f"Found vector store '{vector_store_name}' with ID: {vector_store_id}")
+                break
+        
+        if not vector_store_id:
+            print(f"Error: Vector store '{vector_store_name}' not found!")
+            continue
         
         # Ingest files using vector_stores.files API
         print(f"Ingesting {len(files)} files into vector store '{vector_store_name}' (ID: {vector_store_id})")
@@ -163,7 +223,7 @@ def ingest_documents(folders_config: dict) -> None:
                 
                 # Create in-memory file-like object
                 file_content = io.BytesIO(response.content)
-                
+
                 # Upload file to Llama Stack with metadata
                 file_info = client.files.create(
                     file=(file_name, file_content),
@@ -193,9 +253,10 @@ def ingest_documents(folders_config: dict) -> None:
                 print(f"  Error processing file '{file_name}': {e}")
                 continue
         
-        print(f"Successfully ingested {len(files)} files for '{vector_store_name}'")
+        print(f"Successfully ingested {len(files)} files for '{folder_name}'")
     
     print(f"\n=== Completed processing all {len(folders_config)} folders ===")
+
 
 @dsl.pipeline(name="intelligent-cd-ingest-pipeline")
 def pipeline():
@@ -204,19 +265,27 @@ def pipeline():
     # Step 1: Get folders configuration
     folders_config_task = get_folders_config()
     
-    # Step 2: Process all folders using the configuration
-    ingest_documents_task = ingest_documents(folders_config=folders_config_task.output)
+    # Step 2: Create vector stores for all folders
+    create_stores_task = create_vector_stores(folders_config=folders_config_task.output)
+    create_stores_task.after(folders_config_task)
     
-    # Add secrets for the process task
-    kubernetes.use_secret_as_env(
-        ingest_documents_task,
-        secret_name='ingestion-secret',
-        secret_key_to_env={
-            'LLAMA_STACK_URL': 'LLAMA_STACK_URL',
-            'GIT_REPO': 'GIT_REPO',
-            'GIT_BRANCH': 'GIT_BRANCH',
-            'GIT_DOCS_PATH': 'GIT_DOCS_PATH'
-        })
+    # Step 3: Ingest files into vector stores
+    ingest_documents_task = ingest_documents(folders_config=create_stores_task.output)
+    ingest_documents_task.after(create_stores_task)
+    
+    # Add secrets for all tasks
+    all_tasks = [folders_config_task, create_stores_task, ingest_documents_task]
+    for task in all_tasks:
+        kubernetes.use_secret_as_env(
+            task,
+            secret_name='ingestion-secret',
+            secret_key_to_env={
+                'LLAMA_STACK_URL': 'LLAMA_STACK_URL',
+                'GIT_REPO': 'GIT_REPO',
+                'GIT_BRANCH': 'GIT_BRANCH',
+                'GIT_DOCS_PATH': 'GIT_DOCS_PATH'
+            }
+        )
 
 # Helper function to get or create pipeline
 def get_or_create_pipeline(client, pipeline_name, package_path):
