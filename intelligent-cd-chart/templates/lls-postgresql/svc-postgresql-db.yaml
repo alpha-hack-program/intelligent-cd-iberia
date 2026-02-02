@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.llamaStack.postgresql.name }}
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    {{- if .Values.llamaStack.postgresql.ssl }}
+    service.beta.openshift.io/serving-cert-secret-name: {{ .Values.llamaStack.postgresql.name }}-tls
+    {{- end }}
+spec:
+  selector:
+    app: {{ .Values.llamaStack.postgresql.name }}
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432

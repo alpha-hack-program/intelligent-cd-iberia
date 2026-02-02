@@ -98,18 +98,20 @@ echo ""
 #####################################
 
 echo -e "\n📡 Step 4: Creating MinIO storage..."
-helm template components/minio \
---set clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
-| oc apply -f -
-sleep 5
+if ! oc get namespace minio &>/dev/null; then
+    helm template components/minio \
+    --set clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
+    | oc apply -f -
+    sleep 5
 
-echo "Waiting for MinIO pods to be ready..."
-
-while [[ $(oc get pods -l app=minio -n minio -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do 
-    echo -n "⏳" && sleep 1
-done
-
-echo "✅ MinIO pods are ready!"
+    echo "Waiting for MinIO pods to be ready..."
+    while [[ $(oc get pods -l app=minio -n minio -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do 
+        echo -n "⏳" && sleep 1
+    done
+    echo "✅ MinIO pods are ready!"
+else
+    echo "⏭️  Namespace minio already exists, skipping MinIO creation."
+fi
 
 
 #####################################

@@ -50,6 +50,27 @@ spec:
               name: {{ .Values.llamaStack.name }}-secret
         - name: VLLM_MAX_TOKENS
           value: "65536"
+        # PostgreSQL backend (from values.yaml llamaStack.postgresql; used by default-run.yaml sql_default / kv_postgres)
+        - name: POSTGRES_HOST
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_HOST
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_DB
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_USER
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: {{ .Values.llamaStack.name }}-secret
         {{- if .Values.mcpServers }}
         - name: MCP_OCP_URL
           valueFrom:

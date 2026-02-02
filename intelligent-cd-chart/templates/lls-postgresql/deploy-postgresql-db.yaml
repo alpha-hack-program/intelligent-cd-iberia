@@ -1,0 +1,46 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.llamaStack.postgresql.name }}
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.llamaStack.postgresql.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.llamaStack.postgresql.name }}
+    spec:
+      containers:
+      - name: {{ .Values.llamaStack.postgresql.name }}
+        image: {{ .Values.llamaStack.postgresql.image }}
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.llamaStack.postgresql.name }}-credentials
+              key: POSTGRES_DB
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.llamaStack.postgresql.name }}-credentials
+              key: POSTGRES_USER
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.llamaStack.postgresql.name }}-credentials
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/pgsql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: {{ .Values.llamaStack.postgresql.name }}-data
