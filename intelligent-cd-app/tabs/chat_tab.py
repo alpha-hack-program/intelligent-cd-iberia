@@ -65,18 +65,30 @@ class ChatTab:
         return sampling_params, tools, model_prompt
     
     def _process_tools(self, tools: list) -> list:
-        """Process tools to convert vector_db_names to vector_db_ids and string tools to dict format"""
+        """Process tools to convert vector_db_names to vector_db_ids and string tools to dict format with type field"""
         processed_tools = []
         
         for tool in tools:
-            # Handle string tools (like 'mcp::openshift') - convert to dict format
+            # Handle string tools (like 'mcp::openshift') - parse type and name
             if isinstance(tool, str):
-                processed_tools.append({"name": tool})
+                # Parse format like "mcp::openshift" or "builtin::rag"
+                if '::' in tool:
+                    tool_type, tool_name = tool.split('::', 1)
+                    processed_tools.append({"type": tool_type, "name": tool_name})
+                else:
+                    # If no separator, treat entire string as name (fallback)
+                    processed_tools.append({"name": tool})
                 continue
             
             # Handle dict tools
             if isinstance(tool, dict):
                 tool_copy = tool.copy()
+                
+                # Parse name field if it contains '::' separator to extract type
+                if 'name' in tool_copy and isinstance(tool_copy['name'], str) and '::' in tool_copy['name']:
+                    tool_type, tool_name = tool_copy['name'].split('::', 1)
+                    tool_copy['type'] = tool_type
+                    tool_copy['name'] = tool_name
                 
                 # Check if this tool has args with vector_db_names
                 if 'args' in tool_copy and isinstance(tool_copy['args'], dict):

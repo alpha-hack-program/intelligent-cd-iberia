@@ -1,5 +1,5 @@
 # Build stage
-FROM registry.access.redhat.com/ubi9/python-314:latest as builder
+FROM registry.redhat.io/ubi9/python-312:latest as builder
 
 # Set working directory
 WORKDIR /app
@@ -9,17 +9,17 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage
-FROM registry.access.redhat.com/ubi9-minimal:latest
+FROM registry.redhat.io/ubi9-minimal:latest
 
 # Install Python runtime only
-RUN microdnf install -y python314 && \
+RUN microdnf install -y python312 && \
     microdnf clean all
 
 # Set working directory
 WORKDIR /app
 
 # Copy Python packages from builder stage (using correct paths for UBI)
-COPY --from=builder /opt/app-root/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
+COPY --from=builder /opt/app-root/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /opt/app-root/bin /usr/local/bin
 
 # Install kubectl
@@ -48,4 +48,4 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # Run the application
-CMD ["python3.14", "main.py"]
+CMD ["python3.12", "main.py"]

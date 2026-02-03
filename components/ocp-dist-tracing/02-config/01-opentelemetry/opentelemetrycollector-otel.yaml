@@ -22,6 +22,10 @@ spec:
   observability:
     metrics:
       enableMetrics: true
+  env:
+    # echo -n "lf_pk_telemetry_ai_agents:lf_sk_telemetry_ai_agents" | base64 -w0
+    - name: LANGFUSE_AUTH_STRING
+      value: "bGZfcGtfdGVsZW1ldHJ5X2FpX2FnZW50czpsZl9za190ZWxlbWV0cnlfYWlfYWdlbnRz"
   config:
 
     extensions:
@@ -59,6 +63,13 @@ spec:
         headers:
           X-Scope-OrgID: dev  # tenantName
       
+      # OTLP exporter to Langfuse
+      # https://langfuse.com/integrations/native/opentelemetry
+      otlphttp/langfuse:
+        endpoint: "http://langfuse-web.langfuse.svc.cluster.local:3000/api/public/otel"
+        headers:
+          Authorization: "Basic ${LANGFUSE_AUTH_STRING}"
+          
       prometheus:
         add_metric_suffixes: false
         endpoint: 0.0.0.0:8889
@@ -76,6 +87,7 @@ spec:
             - k8sattributes
           exporters:
             - otlp/tempo
+            - otlphttp/langfuse
             - spanmetrics
             - debug
         metrics:

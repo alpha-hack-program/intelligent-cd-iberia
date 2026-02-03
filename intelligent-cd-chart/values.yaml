@@ -30,7 +30,6 @@ llamaStack:
     maxTokens: ""
   opentelemetry:
     enabled: true
-    bucketNameSuffix: "tempo"
     otelServiceName: "llamastack"
     telemetrySinks: "console,otel_trace" # 'console, sqlite, otel_trace, otel_metric'
     otelExporterOtlpEndpoint: "http://otel-collector.otel.svc.cluster.local:4318"

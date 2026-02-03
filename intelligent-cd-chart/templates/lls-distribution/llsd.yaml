@@ -143,11 +143,33 @@ spec:
               name: {{ .Values.llamaStack.name }}-secret
         {{- end }}
 
-    # {{- if .Values.mcpServers }}
-    # # Default config in /opt/app-root/run.yaml
-    # userConfig:
-    #   configMapName: {{ .Values.llamaStack.name }}-config
-    # {{- end }}
+        #########################
+        # OpenTelemetry
+        #########################
+
+        {{- if .Values.llamaStack.opentelemetry.enabled }}
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            secretKeyRef:
+              key: OTEL_SERVICE_NAME
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: TELEMETRY_SINKS
+          valueFrom:
+            secretKeyRef:
+              key: TELEMETRY_SINKS
+              name: {{ .Values.llamaStack.name }}-secret
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+              name: {{ .Values.llamaStack.name }}-secret
+        {{- end }}
+
+    {{- if .Values.mcpServers }}
+    # Default config in /opt/app-root/run.yaml
+    userConfig:
+      configMapName: {{ .Values.llamaStack.name }}-config
+    {{- end }}
     # storage:
     #   size: "20Gi"
       # mountPath: "/opt/app-root/src/.llama/distributions/rh-dev"
