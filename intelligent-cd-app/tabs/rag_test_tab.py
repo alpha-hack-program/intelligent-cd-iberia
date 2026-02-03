@@ -6,6 +6,7 @@ This module handles RAG testing functionality and status reporting.
 
 import json
 import os
+from datetime import datetime
 from llama_stack_client import LlamaStackClient
 from utils import get_logger
 
@@ -150,117 +151,122 @@ class RAGTestTab:
                 
                 status_info.append("")
                 
-                # 3. Get document information with count and truncated titles
+                # 3. Get document information using the files API
                 status_info.append(f"📄 **Documents in '{vector_store_name}':**")
                 try:
-                    # Try to get document information through queries
-                    document_titles = []
-                    document_count = 0
+                    # Use the vector store files API to get file information
+                    files_response = self.client.vector_stores.files.list(
+                        vector_store_id=vector_store_id
+                    )
                     
-                    # Try different queries to extract document information
-                    test_queries = [
-                        "What documents are available?",
-                        "List all document titles",
-                        "What files or documents are stored?",
-                        "Show me the document names"
-                    ]
-                    
-                    for query in test_queries:
-                        try:
-                            result = self.client.tool_runtime.rag_tool.query(
-                                vector_db_ids=[vector_store_id],
-                                content=query,
-                            )
-                            if result:
-                                result_str = str(result).lower()
-                                # Look for document-related information in the response
-                                if any(keyword in result_str for keyword in ['document', 'file', 'title', 'name']):
-                                    # Try to extract titles from the response
-                                    lines = str(result).split('\n')
-                                    for line in lines:
-                                        line = line.strip()
-                                        if line and len(line) > 5 and len(line) < 100:
-                                            # Simple heuristic to identify potential document titles
-                                            if any(keyword in line.lower() for keyword in ['document', 'file', '.pdf', '.txt', '.doc', 'title']):
-                                                if line not in document_titles:
-                                                    document_titles.append(line)
-                                    break
-                        except Exception:
-                            continue
-                    
-                    # If we couldn't extract titles, try a more generic approach
-                    if not document_titles:
-                        try:
-                            # Try to get a sample of content to estimate document count
-                            sample_result = self.client.tool_runtime.rag_tool.query(
-                                vector_db_ids=[vector_store_id],
-                                content="sample content",
-                            )
-                            if sample_result:
-                                # Estimate based on response length and structure
-                                result_str = str(sample_result)
-                                if len(result_str) > 1000:
-                                    document_count = "Multiple documents detected"
+                    if files_response and hasattr(files_response, 'data'):
+                        files = files_response.data
+                        file_count = len(files)
+                        
+                        status_info.append(f"   • File Count: {file_count} files")
+                        
+                        if file_count > 0:
+                            # Show file details
+                            status_info.append("   • File Details:")
+                            for i, file_info in enumerate(files[:10]):  # Show max 10 files
+                                file_id = getattr(file_info, 'id', 'unknown')
+                                status = getattr(file_info, 'status', 'unknown')
+                                created_at = getattr(file_info, 'created_at', None)
+                                
+                                # Format creation time if available
+                                if created_at:
+                                    try:
+                                        dt = datetime.fromtimestamp(created_at)
+                                        created_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                                    except:
+                                        created_str = str(created_at)
                                 else:
-                                    document_count = "Documents available"
-                        except Exception:
-                            pass
-                    
-                    # Display results
-                    if document_titles:
-                        status_info.append(f"   • Document Count: {len(document_titles)} documents found")
-                        status_info.append("   • Document Titles (truncated):")
-                        for i, title in enumerate(document_titles[:5]):  # Show max 5 titles
-                            truncated_title = title[:60] + "..." if len(title) > 60 else title
-                            status_info.append(f"     {i+1}. {truncated_title}")
-                        if len(document_titles) > 5:
-                            status_info.append(f"     ... and {len(document_titles) - 5} more documents")
-                    elif document_count:
-                        status_info.append(f"   • Document Status: {document_count}")
+                                    created_str = "N/A"
+                                
+                                status_emoji = "✅" if status == "completed" else "⏳" if status == "processing" else "❌"
+                                status_info.append(f"     {i+1}. {status_emoji} File ID: {file_id[:20]}... | Status: {status} | Created: {created_str}")
+                            
+                            if file_count > 10:
+                                status_info.append(f"     ... and {file_count - 10} more files")
+                            
+                            # Count files by status
+                            status_counts = {}
+                            for file_info in files:
+                                status = getattr(file_info, 'status', 'unknown')
+                                status_counts[status] = status_counts.get(status, 0) + 1
+                            
+                            if len(status_counts) > 1:
+                                status_info.append("   • Status Summary:")
+                                for status, count in status_counts.items():
+                                    status_emoji = "✅" if status == "completed" else "⏳" if status == "processing" else "❌"
+                                    status_info.append(f"     {status_emoji} {status}: {count}")
+                        else:
+                            status_info.append("   • No files found in vector store")
+                    elif files_response:
+                        # Handle case where response is a list directly
+                        files = files_response if isinstance(files_response, list) else []
+                        file_count = len(files)
+                        status_info.append(f"   • File Count: {file_count} files")
+                        if file_count == 0:
+                            status_info.append("   • No files found in vector store")
                     else:
-                        status_info.append("   • Document information not available through queries")
+                        status_info.append("   • Unable to retrieve file information")
                         status_info.append("   • System is responsive to queries")
                         
                 except Exception as e:
-                    status_info.append(f"   ❌ Error accessing document information: {str(e)}")
+                    self.logger.warning(f"Error accessing file information via API: {str(e)}")
+                    status_info.append(f"   ⚠️ Error accessing file information: {str(e)}")
+                    # Fallback: indicate system is responsive
+                    try:
+                        test_result = self.client.tool_runtime.rag_tool.query(
+                            vector_db_ids=[vector_store_id],
+                            content="test",
+                        )
+                        if test_result:
+                            status_info.append("   • System is responsive to queries")
+                    except:
+                        pass
                 
                 status_info.append("")
                 
-                # 4. Provider information (extracted from vector stores)
-                status_info.append("🔧 **Provider Information:**")
+                # 4. Provider information (vector_io providers)
+                status_info.append("🔧 **Provider Information (vector_io):**")
                 try:
-                    list_response = self.client.vector_stores.list()
-                    providers_found = set()
-                    for vs in list_response:
-                        if hasattr(vs, 'provider_id'):
-                            providers_found.add(vs.provider_id)
+                    # List all providers and filter for vector_io type
+                    providers_list = self.client.providers.list()
+                    vector_io_providers = []
                     
-                    if providers_found:
-                        status_info.append("   • Configured Providers:")
-                        for provider in providers_found:
-                            status_info.append(f"     • {provider}")
+                    for provider in providers_list:
+                        # Check if provider has api attribute set to "vector_io"
+                        if hasattr(provider, 'api') and provider.api == "vector_io":
+                            provider_info = {
+                                'id': getattr(provider, 'id', 'unknown'),
+                                'name': getattr(provider, 'name', 'unknown'),
+                                'api': getattr(provider, 'api', 'unknown'),
+                            }
+                            # Add any additional attributes
+                            if hasattr(provider, '__dict__'):
+                                for key, value in provider.__dict__.items():
+                                    if not key.startswith('_') and key not in ['id', 'name', 'api'] and value:
+                                        provider_info[key] = value
+                            vector_io_providers.append(provider_info)
+                    
+                    if vector_io_providers:
+                        status_info.append(f"   • Found {len(vector_io_providers)} vector_io provider(s):")
+                        for provider in vector_io_providers:
+                            status_info.append(f"     • **{provider.get('name', 'unknown')}** (ID: {provider.get('id', 'unknown')})")
+                            # Show additional info if available
+                            for key, value in provider.items():
+                                if key not in ['id', 'name', 'api']:
+                                    status_info.append(f"       - {key}: {value}")
                     else:
-                        status_info.append("   • No provider information available")
+                        status_info.append("   • No vector_io providers found")
                         
                 except Exception as e:
                     status_info.append(f"   ❌ Error getting provider info: {str(e)}")
+                    self.logger.error(f"Error listing providers: {str(e)}")
                 
                 status_info.append("")
-                
-                # 5. Functionality test
-                status_info.append("🧪 **Functionality Test:**")
-                try:
-                    test_result = self.client.tool_runtime.rag_tool.query(
-                        vector_db_ids=[vector_store_id],
-                        content="test query",
-                    )
-                    if test_result:
-                        status_info.append("   ✅ RAG query functionality is working")
-                        status_info.append(f"   • Test query returned: {len(str(test_result))} characters")
-                    else:
-                        status_info.append("   ⚠️ RAG query returned empty result")
-                except Exception as e:
-                    status_info.append(f"   ❌ RAG query test failed: {str(e)}")
             
             else:
                 status_info.append("❌ No vector store configured")

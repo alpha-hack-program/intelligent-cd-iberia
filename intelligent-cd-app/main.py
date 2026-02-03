@@ -23,7 +23,6 @@ from tabs import ChatTab, MCPTestTab, RAGTestTab, SystemStatusTab, FormTab
 from gradio_app import create_demo
 
 
-
 # ============================================================================
 # CONFIGURATION AND CLIENT INITIALIZATION
 # ============================================================================

@@ -65,13 +65,13 @@ class ChatTab:
         return sampling_params, tools, model_prompt
     
     def _process_tools(self, tools: list) -> list:
-        """Process tools to convert vector_db_names to vector_db_ids"""
+        """Process tools to convert vector_db_names to vector_db_ids and string tools to dict format"""
         processed_tools = []
         
         for tool in tools:
-            # Handle string tools (like 'mcp::servicenow')
+            # Handle string tools (like 'mcp::openshift') - convert to dict format
             if isinstance(tool, str):
-                processed_tools.append(tool)
+                processed_tools.append({"name": tool})
                 continue
             
             # Handle dict tools
@@ -139,13 +139,10 @@ class ChatTab:
             model=self.model,
             instructions=formatted_prompt,
             tools=self.tools_json,
-            tool_config={"tool_choice": "auto"},  # Ensure tools are actually executed
-            response_format={
+            json_response_format={
                 "type": "json_schema",
                 "json_schema": ReActOutput.model_json_schema(),
-            },
-            sampling_params=self.sampling_params,
-            max_infer_iters=self.max_infer_iters
+            }
         )
         
         self.logger.info("✅ ReActAgent created successfully")
