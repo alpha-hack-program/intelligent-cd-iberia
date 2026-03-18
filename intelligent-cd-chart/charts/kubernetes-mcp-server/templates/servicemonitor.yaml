@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ include "kubernetes-mcp-server.fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.namespace | default .Release.Namespace }}
   labels:
     {{- include "kubernetes-mcp-server.labels" . | nindent 4 }}
     {{- with .Values.metrics.serviceMonitor.labels }}
@@ -43,7 +43,7 @@ spec:
       {{- end }}
   namespaceSelector:
     matchNames:
-      - {{ .Release.Namespace }}
+      - {{ .Values.global.namespace | default .Release.Namespace }}
   selector:
     matchLabels:
       {{- include "kubernetes-mcp-server.selectorLabels" . | nindent 6 }}
