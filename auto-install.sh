@@ -136,19 +136,19 @@ while [[ $(oc get csv -n openshift-opentelemetry-operator -l operators.coreos.co
 done
 echo -e " [OK]"
 
-# 2. Wait for Cluster Observability Operator
-echo -n "⏳ Waiting for Cluster Observability Operator to be ready..."
-while [[ $(oc get csv -n openshift-opentelemetry-operator -l olm.copiedFrom=openshift-cluster-observability-operator -o 'jsonpath={.items[0].status.phase}' 2>/dev/null) != "Succeeded" ]]; do
-    echo -n "⏳" && sleep 3
-done
-echo -e " [OK]"
+# # 2. Wait for Cluster Observability Operator
+# echo -n "⏳ Waiting for Cluster Observability Operator to be ready..."
+# while [[ $(oc get csv -n openshift-opentelemetry-operator -l olm.copiedFrom=openshift-cluster-observability-operator -o 'jsonpath={.items[0].status.phase}' 2>/dev/null) != "Succeeded" ]]; do
+#     echo -n "⏳" && sleep 3
+# done
+# echo -e " [OK]"
 
-# 3. Wait for Tempo Operator
-echo -n "⏳ Waiting for Tempo Operator to be ready..."
-while [[ $(oc get csv -n openshift-tempo-operator -l operators.coreos.com/tempo-product.openshift-tempo-operator -o 'jsonpath={..status.phase}' 2>/dev/null) != "Succeeded" ]]; do
-    echo -n "⏳" && sleep 3
-done
-echo -e " [OK]"
+# # 3. Wait for Tempo Operator
+# echo -n "⏳ Waiting for Tempo Operator to be ready..."
+# while [[ $(oc get csv -n openshift-tempo-operator -l operators.coreos.com/tempo-product.openshift-tempo-operator -o 'jsonpath={..status.phase}' 2>/dev/null) != "Succeeded" ]]; do
+#     echo -n "⏳" && sleep 3
+# done
+# echo -e " [OK]"
 
 echo "✅ Operators deployed successfully!"
 
@@ -235,12 +235,12 @@ echo "✅ All pods are ready!"
 # Step 8: Deploy the LLS Playground
 #####################################
 
-echo -e "\n🗄️ Step 8: Deploying the LLS Playground..."
+# echo -e "\n🗄️ Step 8: Deploying the LLS Playground..."
 
-helm template components/lls-playground \
---set global.clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
---set llsEndpoint="http://llama-stack-service.intelligent-cd.svc.cluster.local:8321" \
-| oc apply -f -
+# helm template components/lls-playground \
+# --set global.clusterDomain=$(oc get dns.config/cluster -o jsonpath='{.spec.baseDomain}') \
+# --set llsEndpoint="http://llama-stack-service.intelligent-cd.svc.cluster.local:8321" \
+# | oc apply -f -
 
 #####################################
 # Step 9: Wait for route to be created

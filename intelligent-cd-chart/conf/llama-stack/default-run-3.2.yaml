@@ -16,14 +16,14 @@ providers:
   - provider_id: ${env.VLLM_URL:+vllm-inference}
     provider_type: remote::vllm
     config:
-      base_url: ${env.VLLM_URL:=}
+      url: ${env.VLLM_URL:=}
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
   - provider_id: ${env.VLLM_EMBEDDING_URL:+vllm-embedding}
     provider_type: remote::vllm
     config:
-      base_url: ${env.VLLM_EMBEDDING_URL:=}
+      url: ${env.VLLM_EMBEDDING_URL:=}
       max_tokens: ${env.VLLM_EMBEDDING_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_EMBEDDING_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_EMBEDDING_TLS_VERIFY:=true}
@@ -38,7 +38,7 @@ providers:
   - provider_id: ${env.WATSONX_API_KEY:+watsonx}
     provider_type: remote::watsonx
     config:
-      base_url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
+      url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
       api_key: ${env.WATSONX_API_KEY:=}
       project_id: ${env.WATSONX_PROJECT_ID:=}
   - provider_id: ${env.AZURE_API_KEY:+azure}
@@ -96,22 +96,6 @@ providers:
       persistence:
         backend: kv_default
         namespace: vector_io::pgvector
-  - provider_id: ${env.ENABLE_QDRANT:+qdrant-remote}
-    provider_type: remote::qdrant
-    config:
-      location: ${env.QDRANT_LOCATION:=}
-      url: ${env.QDRANT_URL:=}
-      port: ${env.QDRANT_PORT:=6333}
-      grpc_port: ${env.QDRANT_GRPC_PORT:=6334}
-      prefer_grpc: ${env.QDRANT_PREFER_GRPC:=false}
-      https: ${env.QDRANT_HTTPS:=}
-      api_key: ${env.QDRANT_API_KEY:=}
-      prefix: ${env.QDRANT_PREFIX:=}
-      timeout: ${env.QDRANT_TIMEOUT:=}
-      host: ${env.QDRANT_HOST:=}
-      persistence:
-        backend: kv_default
-        namespace: vector_io::qdrant_remote
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
@@ -136,18 +120,18 @@ providers:
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
-    module: llama_stack_provider_lmeval==0.4.2
+    module: llama_stack_provider_lmeval==0.2.4
     config:
       use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
       base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
   - provider_id: ${env.TRUSTYAI_EMBEDDING_MODEL:+trustyai_ragas_inline}
     provider_type: inline::trustyai_ragas
-    module: llama_stack_provider_ragas.inline==0.5.1
+    module: llama_stack_provider_ragas.inline
     config:
       embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
   - provider_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_ragas_remote}
     provider_type: remote::trustyai_ragas
-    module: llama_stack_provider_ragas.remote==0.5.1
+    module: llama_stack_provider_ragas.remote
     config:
       embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
       kubeflow_config:
@@ -280,10 +264,6 @@ registered_resources:
     provider_id: tavily-search
   - toolgroup_id: builtin::rag
     provider_id: rag-runtime
-vector_stores:
-  annotation_prompt_params:
-    enable_annotations: true
-    annotation_instruction_template: "Cite sources immediately at the end of sentences using <|file-id|> format."
 telemetry:
   enabled: true
 server:

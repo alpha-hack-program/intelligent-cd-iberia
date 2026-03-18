@@ -49,9 +49,10 @@ class SystemStatusTab:
         llm_status = []
         llm_status.append("🤖 LLM Service (Inference):")
         
-        # Test LLM connectivity with a direct chat.completions.create request
         try:
-            test_response = self.client.chat.completions.create(
+            test_response = self.client.with_options(
+                max_retries=0, timeout=15.0
+            ).chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "user", "content": "Hello, this is a test message."}
@@ -62,19 +63,20 @@ class SystemStatusTab:
             )
             llm_status.append("   • Status: ✅ LLM service responding")
             llm_status.append(f"   • Model: {self.model}")
+            
+            if test_response.choices:
+                choice = test_response.choices[0]
+                response_content = getattr(choice, 'message', None)
+                if response_content and hasattr(response_content, 'content'):
+                    response_content = response_content.content or ""
+                else:
+                    response_content = getattr(choice, 'text', "") or ""
+                llm_status.append(f"   • Response: ✅ Received {len(response_content)} characters")
+            else:
+                llm_status.append("   • Response: ⚠️ No choices in response")
         except Exception as e:
             llm_status.append("   • Status: ❌ LLM service not responding")
             llm_status.append(f"   • Error: {str(e)}")
-            test_response = None
-        
-        # Extract response content for length calculation
-        if hasattr(test_response, 'messages') and test_response.messages:
-            last_message = test_response.messages[-1]
-            response_content = getattr(last_message, 'content', str(last_message))
-        else:
-            response_content = str(test_response)
-        
-        llm_status.append(f"   • Response: ✅ Received {len(response_content)} characters")
         
         return llm_status
     
@@ -83,29 +85,22 @@ class SystemStatusTab:
         rag_status = []
         rag_status.append("📚 RAG Server:")
         
-        # Check 1: Test connection by calling list()
         try:
             list_response = self.client.vector_stores.list()
+            vector_stores_list = list(list_response)
             rag_status.append("   • Connection: ✅ RAG backend responding")
         except Exception as e:
             rag_status.append("   • Connection: ❌ Failed to connect to RAG backend")
             rag_status.append(f"   • Error: {str(e)}")
             return rag_status
         
-        # Check 2: Check if self.vector_store_name is included in the list by name
-        vector_store_found = False
-        for vs in list_response:
-            if vs.name == self.vector_store_name:
-                vector_store_found = True
-                break
+        vector_store_found = any(vs.name == self.vector_store_name for vs in vector_stores_list)
         
         if vector_store_found:
             rag_status.append(f"   • Target DB: ✅ Vector Store '{self.vector_store_name}' found in list")
         else:
             rag_status.append(f"   • Target DB: ❌ Vector Store '{self.vector_store_name}' not found in list")
         
-        # Check 3: Show all vector stores with ID and Name
-        vector_stores_list = list(list_response) if list_response else []
         if vector_stores_list:
             rag_status.append(f"   • Available DBs: Found {len(vector_stores_list)} vector database(s)")
             rag_status.append("   • DB Details:")
@@ -122,37 +117,24 @@ class SystemStatusTab:
         mcp_status = []
         mcp_status.append("☸️ MCP Server:")
         
-        # Test MCP connection directly
-        self.logger.debug("Testing MCP connection directly...")
         try:
-            # Test if we can list tools
             tools = self.client.tools.list()
             self.logger.info(f"MCP tools.list() returned: {len(tools)} tools")
             
-            # Test if we can invoke a simple tool
-            if tools:
-                first_tool = tools[0]
-                self.logger.debug(f"First tool: {first_tool}")
-                if hasattr(first_tool, 'name'):
-                    self.logger.debug(f"First tool name: {first_tool.name}")
+            toolgroups = list(set(
+                tool.toolgroup_id for tool in tools if tool.toolgroup_id
+            ))
+            mcp_status.append("   • Status: ✅ MCP server responding")
+            mcp_status.append(f"   • Toolgroups: ✅ Found {len(toolgroups)} toolgroup(s)")
+            
+            if toolgroups:
+                mcp_status.append("   • Toolgroup IDs:")
+                for toolgroup_id in toolgroups:
+                    mcp_status.append(f"      - {toolgroup_id}")
         except Exception as e:
             self.logger.error(f"MCP test failed: {str(e)}")
-            import traceback
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
-        
-        # List tools to check MCP server connectivity
-        tools = self.client.tools.list()
-        
-        # Extract unique toolgroup IDs
-        toolgroups = list(set(tool.toolgroup_id for tool in tools))
-        mcp_status.append("   • Status: ✅ MCP server responding")
-        mcp_status.append(f"   • Toolgroups: ✅ Found {len(toolgroups)} toolgroup(s)")
-        
-        # List all toolgroup identifiers as a simple list
-        if toolgroups:
-            mcp_status.append("   • Toolgroup IDs:")
-            for toolgroup_id in toolgroups:
-                mcp_status.append(f"      - {toolgroup_id}")
+            mcp_status.append("   • Status: ❌ MCP server not responding")
+            mcp_status.append(f"   • Error: {str(e)}")
         
         return mcp_status
     

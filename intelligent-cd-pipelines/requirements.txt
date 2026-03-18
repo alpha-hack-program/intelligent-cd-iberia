@@ -3,5 +3,5 @@ kfp-kubernetes==2.15.2
 kfp-pipeline-spec==2.15.2
 kfp-server-api==2.15.2
 kubernetes==30.1.0
-llama_stack==0.3.5
-llama_stack_client==0.3.5
+llama_stack==0.4.2
+llama_stack_client==0.4.2

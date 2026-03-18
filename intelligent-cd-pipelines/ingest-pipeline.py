@@ -36,7 +36,7 @@ def get_folders_config() -> dict:
     return folders_config
 
 
-@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5"])
+@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.4.2"])
 def create_vector_stores(folders_config: dict) -> dict:
     """Creates vector stores for all folders in the configuration.
     
@@ -48,80 +48,68 @@ def create_vector_stores(folders_config: dict) -> dict:
     """
     from llama_stack_client import LlamaStackClient
     import os
+    import sys
     
-    # Get Llama Stack URL from environment
+    def log(msg):
+        print(msg, flush=True)
+    
     llama_stack_url = os.getenv("LLAMA_STACK_URL")
+    log(f"LLAMA_STACK_URL = {llama_stack_url}")
     if not llama_stack_url:
         raise ValueError("LLAMA_STACK_URL environment variable is required")
     
-    # Initialize LlamaStack client
+    log(f"Initializing LlamaStackClient...")
     client = LlamaStackClient(
         base_url=llama_stack_url,
-        timeout=180.0
+        timeout=60.0,
+        max_retries=1
     )
+    log(f"Client initialized. Calling models.list()...")
     
-    # Get embedding model and dimension
-    print(f"\nFinding embedding model:")
     models = client.models.list()
+    log(f"Got {len(models)} models")
     embedding_model_id = None
     embedding_dimension = 768  # Default for granite-embedding-125m
     
     for model in models:
-        if model.model_type == "embedding":
-            embedding_model_id = model.identifier
-            # Get dimension from metadata or model attribute
+        meta = model.custom_metadata or {}
+        log(f"  Model: id={model.id}, model_type={meta.get('model_type')}")
+        if meta.get("model_type") == "embedding":
+            embedding_model_id = model.id
             embedding_dimension = (
-                (model.metadata or {}).get('embedding_dimension') or
-                getattr(model, 'embedding_dimension', None) or
+                meta.get('embedding_dimension') or
                 768
             )
-            print(f"  Model: {embedding_model_id}, Dimension: {embedding_dimension}")
+            log(f"  -> Selected embedding: {embedding_model_id}, dim={embedding_dimension}")
             break
     
     if not embedding_model_id:
         raise RuntimeError("No embedding model found. Please ensure an embedding model is registered in Llama Stack.")
     
-    # List all existing vector stores
-    print(f"\nListing all vector stores:")
+    log("Listing all vector stores...")
     list_response = client.vector_stores.list()
     existing_stores = {}
     for vs in list_response:
-        print(f"  - ID: {vs.id}, Name: {vs.name}")
+        log(f"  - ID: {vs.id}, Name: {vs.name}")
         existing_stores[vs.name] = vs.id
     
-    print(f"Processing {len(folders_config)} folders from configuration")
+    log(f"Processing {len(folders_config)} folders from configuration")
     
-    # Process each folder
     for folder_name, files in folders_config.items():
-        print(f"\n=== Processing folder: {folder_name} ===")
-        print(f"Files to process: {files}")
+        log(f"\n=== Processing folder: {folder_name} ===")
+        log(f"Files to process: {files}")
         
         if not files:
-            print(f"Warning: No files configured for folder '{folder_name}'!")
+            log(f"Warning: No files configured for folder '{folder_name}'!")
             continue
         
         vector_store_name = folder_name
         vector_store_id = existing_stores.get(vector_store_name)
         
-        # Delete if exists, then exit
-        # if vector_store_id:
-        #     print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}, deleting it...")
-        #     client.vector_stores.delete(vector_store_id=vector_store_id)
-        #     print(f"Deleted vector store '{vector_store_name}', exiting...")
-        #     return
-        
-        # Create if doesn't exist
         if not vector_store_id:
-            print(f"Vector store '{vector_store_name}' not found, creating it...")
-            
-            # Create the vector database
-            # https://github.com/llamastack/llama-stack-client-python/blob/v0.3.5/api.md
-            # The API requires a model but doesn't accept it as a direct parameter
-            # Pass it via extra_body
-            provider_id = "milvus"  # Use milvus provider as configured
-            print(f"Using embedding model: {embedding_model_id}")
-            print(f"Embedding dimension: {embedding_dimension}")
-            print(f"Provider ID: {provider_id}")
+            log(f"Vector store '{vector_store_name}' not found, creating it...")
+            provider_id = "milvus"
+            log(f"  embedding_model={embedding_model_id}, dim={embedding_dimension}, provider={provider_id}")
             
             vector_store = client.vector_stores.create(
                 name=vector_store_name,
@@ -132,15 +120,15 @@ def create_vector_stores(folders_config: dict) -> dict:
                 }
             )
             vector_store_id = vector_store.id
-            print(f"Vector store '{vector_store_name}' created successfully with ID: {vector_store_id}")
+            log(f"Vector store '{vector_store_name}' created with ID: {vector_store_id}")
         else:
-            print(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}")
+            log(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}")
     
     # Return the same folders_config structure
     return folders_config
 
 
-@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.3.5", "requests"])
+@dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.4.2", "requests"])
 def ingest_documents(folders_config: dict) -> None:
     """Ingests files into vector stores for all folders in the configuration.
     
