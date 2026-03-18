@@ -8,6 +8,7 @@ inference:
   url: "https://URL:PORT/v1"
   apiToken: ""
   tlsVerify: "true"
+  maxTokens: 350000
 
 llamaStack:
   name: llama-stack
@@ -29,7 +30,7 @@ llamaStack:
     apiToken: ""
     maxTokens: ""
   opentelemetry:
-    enabled: true
+    enabled: false
     otelServiceName: "llamastack"
     telemetrySinks: "console,otel_trace" # 'console, sqlite, otel_trace, otel_metric'
     otelExporterOtlpEndpoint: "http://otel-collector.otel.svc.cluster.local:4318"

@@ -21,40 +21,29 @@ spec:
       {{- else }}
       name: rh-dev
       {{- end }}
+    # storage:
+    #   size: 5Gi
     containerSpec:
       resources:
         requests:
           memory: "500Mi"
-          cpu: "100m"
+          cpu: "250m"
         limits:
-          memory: "8Gi"
-          cpu: "2"
-      # command:
-      #   - /bin/sh
-      #   - '-c'
-      #   - llama stack run /etc/llama-stack/run.yaml
+          memory: "12Gi"
+          cpu: "4"
       env:
 
         #########################
         # Metadata backend
         #########################
         - name: POSTGRES_HOST
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_HOST
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.postgresql.name }}.{{ .Values.global.namespace }}.svc.cluster.local
         - name: POSTGRES_PORT
           value: "5432"
         - name: POSTGRES_DB
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_DB
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.postgresql.database | quote }}
         - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_USER
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.postgresql.user | quote }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -66,25 +55,16 @@ spec:
         #########################
 
         {{- if .Values.llamaStack.embeddings.remote }}
-        # Option 2: Remote embeddings (MaaS)
         - name: VLLM_EMBEDDING_URL
-          valueFrom:
-            secretKeyRef:
-              key: VLLM_EMBEDDING_URL
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.embeddings.url | quote }}
         - name: VLLM_EMBEDDING_API_TOKEN
           valueFrom:
             secretKeyRef:
               key: VLLM_EMBEDDING_API_TOKEN
               name: {{ .Values.llamaStack.name }}-secret
         - name: VLLM_EMBEDDING_MAX_TOKENS
-          valueFrom:
-            secretKeyRef:
-              key: VLLM_EMBEDDING_MAX_TOKENS
-              name: {{ .Values.llamaStack.name }}-secret
-
+          value: {{ .Values.llamaStack.embeddings.maxTokens | quote }}
         {{- else }}
-        # Option 2: Inline embeddings (sentence-transformers)
         - name: ENABLE_SENTENCE_TRANSFORMERS
           value: "true"
         - name: EMBEDDING_PROVIDER
@@ -96,28 +76,18 @@ spec:
         #########################
 
         - name: INFERENCE_MODEL
-          valueFrom:
-            secretKeyRef:
-              key: INFERENCE_MODEL
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.inference.model | quote }}
         - name: VLLM_URL
-          valueFrom:
-            secretKeyRef:
-              key: VLLM_URL
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.inference.url | quote }}
         - name: VLLM_TLS_VERIFY
-          valueFrom:
-            secretKeyRef:
-              key: VLLM_TLS_VERIFY
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.inference.tlsVerify | quote }}
         - name: VLLM_API_TOKEN
           valueFrom:
             secretKeyRef:
               key: VLLM_API_TOKEN
               name: {{ .Values.llamaStack.name }}-secret
         - name: VLLM_MAX_TOKENS
-          value: "65536"
-
+          value: "{{ .Values.inference.maxTokens | default 400000 }}"
 
         #########################
         # Tooling providers
@@ -132,21 +102,18 @@ spec:
         {{- end }}
 
         {{- if .Values.mcpServers }}
+        {{- if .Values.mcpServers.ocpMcpServer }}
         - name: MCP_OCP_URL
-          valueFrom:
-            secretKeyRef:
-              key: MCP_OCP_URL
-              name: {{ .Values.llamaStack.name }}-secret
+          value: "http://{{ .Values.mcpServers.ocpMcpServer.name }}:{{ .Values.mcpServers.ocpMcpServer.mcpServer.port }}"
+        {{- end }}
+        {{- if .Values.mcpServers.argocdMcpServer }}
         - name: MCP_ARGOCD_URL
-          valueFrom:
-            secretKeyRef:
-              key: MCP_ARGOCD_URL
-              name: {{ .Values.llamaStack.name }}-secret
+          value: "http://{{ .Values.mcpServers.argocdMcpServer.name }}:{{ .Values.mcpServers.argocdMcpServer.mcpServer.port }}"
+        {{- end }}
+        {{- if .Values.mcpServers.servicenowMcp }}
         - name: MCP_SERVICENOW_URL
-          valueFrom:
-            secretKeyRef:
-              key: MCP_SERVICENOW_URL
-              name: {{ .Values.llamaStack.name }}-secret
+          value: "http://{{ .Values.mcpServers.servicenowMcp.name }}:{{ .Values.mcpServers.servicenowMcp.mcpServer.port }}"
+        {{- end }}
         {{- end }}
 
         #########################
@@ -155,27 +122,9 @@ spec:
 
         {{- if .Values.llamaStack.opentelemetry.enabled }}
         - name: OTEL_SERVICE_NAME
-          valueFrom:
-            secretKeyRef:
-              key: OTEL_SERVICE_NAME
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.opentelemetry.otelServiceName | quote }}
         - name: TELEMETRY_SINKS
-          valueFrom:
-            secretKeyRef:
-              key: TELEMETRY_SINKS
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.opentelemetry.telemetrySinks | quote }}
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              key: OTEL_EXPORTER_OTLP_ENDPOINT
-              name: {{ .Values.llamaStack.name }}-secret
+          value: {{ .Values.llamaStack.opentelemetry.otelExporterOtlpEndpoint | quote }}
         {{- end }}
-
-    # {{- if .Values.mcpServers }}
-    # # Default config in /opt/app-root/run.yaml
-    # userConfig:
-    #   configMapName: {{ .Values.llamaStack.name }}-config
-    # {{- end }}
-    # storage:
-    #   size: "20Gi"
-      # mountPath: "/opt/app-root/src/.llama/distributions/rh-dev"

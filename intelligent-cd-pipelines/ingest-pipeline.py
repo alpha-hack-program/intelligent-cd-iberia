@@ -37,11 +37,16 @@ def get_folders_config() -> dict:
 
 
 @dsl.component(base_image="python:3.14", packages_to_install=["llama-stack-client==0.4.2"])
-def create_vector_stores(folders_config: dict) -> dict:
+def create_vector_stores(folders_config: dict, recreate_stores: bool = False) -> dict:
     """Creates vector stores for all folders in the configuration.
+    
+    When recreate_stores is True, existing vector stores are deleted and
+    recreated from scratch — useful for testing new RAG content.
+    When False (default), existing stores are reused as-is.
     
     Args:
         folders_config: Dictionary mapping folder names to their file lists
+        recreate_stores: If True, delete and recreate existing vector stores
         
     Returns:
         folders_config: The same folders_config structure (vector stores are now created)
@@ -57,6 +62,8 @@ def create_vector_stores(folders_config: dict) -> dict:
     log(f"LLAMA_STACK_URL = {llama_stack_url}")
     if not llama_stack_url:
         raise ValueError("LLAMA_STACK_URL environment variable is required")
+    
+    log(f"recreate_stores = {recreate_stores}")
     
     log(f"Initializing LlamaStackClient...")
     client = LlamaStackClient(
@@ -86,7 +93,7 @@ def create_vector_stores(folders_config: dict) -> dict:
     if not embedding_model_id:
         raise RuntimeError("No embedding model found. Please ensure an embedding model is registered in Llama Stack.")
     
-    log("Listing all vector stores...")
+    log("Listing existing vector stores...")
     list_response = client.vector_stores.list()
     existing_stores = {}
     for vs in list_response:
@@ -104,27 +111,33 @@ def create_vector_stores(folders_config: dict) -> dict:
             continue
         
         vector_store_name = folder_name
-        vector_store_id = existing_stores.get(vector_store_name)
+        old_id = existing_stores.get(vector_store_name)
         
-        if not vector_store_id:
-            log(f"Vector store '{vector_store_name}' not found, creating it...")
-            provider_id = "milvus"
-            log(f"  embedding_model={embedding_model_id}, dim={embedding_dimension}, provider={provider_id}")
-            
-            vector_store = client.vector_stores.create(
-                name=vector_store_name,
-                extra_body={
-                    "embedding_model": embedding_model_id,
-                    "embedding_dimension": embedding_dimension,
-                    "provider_id": provider_id
-                }
-            )
-            vector_store_id = vector_store.id
-            log(f"Vector store '{vector_store_name}' created with ID: {vector_store_id}")
-        else:
-            log(f"Found existing vector store '{vector_store_name}' with ID: {vector_store_id}")
+        if old_id and not recreate_stores:
+            log(f"Vector store '{vector_store_name}' already exists (ID: {old_id}). Skipping (recreate_stores=False).")
+            continue
+        
+        if old_id and recreate_stores:
+            log(f"Deleting existing vector store '{vector_store_name}' (ID: {old_id}) for a clean re-creation...")
+            try:
+                client.vector_stores.delete(vector_store_id=old_id)
+                log(f"  Deleted successfully.")
+            except Exception as e:
+                log(f"  Warning: could not delete old vector store: {e}")
+        
+        provider_id = "milvus"
+        log(f"Creating vector store '{vector_store_name}' (embedding_model={embedding_model_id}, dim={embedding_dimension}, provider={provider_id})")
+        
+        vector_store = client.vector_stores.create(
+            name=vector_store_name,
+            extra_body={
+                "embedding_model": embedding_model_id,
+                "embedding_dimension": embedding_dimension,
+                "provider_id": provider_id
+            }
+        )
+        log(f"Vector store '{vector_store_name}' created with ID: {vector_store.id}")
     
-    # Return the same folders_config structure
     return folders_config
 
 
@@ -247,14 +260,22 @@ def ingest_documents(folders_config: dict) -> None:
 
 
 @dsl.pipeline(name="intelligent-cd-ingest-pipeline")
-def pipeline():
-    """Main pipeline that processes multiple DB IDs using hardcoded configuration."""
+def pipeline(recreate_stores: bool = False):
+    """Main pipeline that processes multiple DB IDs using hardcoded configuration.
+    
+    Args:
+        recreate_stores: When True, delete existing vector stores and recreate
+            them from scratch. Useful for testing new RAG content.
+    """
     
     # Step 1: Get folders configuration
     folders_config_task = get_folders_config()
     
     # Step 2: Create vector stores for all folders
-    create_stores_task = create_vector_stores(folders_config=folders_config_task.output)
+    create_stores_task = create_vector_stores(
+        folders_config=folders_config_task.output,
+        recreate_stores=recreate_stores
+    )
     create_stores_task.after(folders_config_task)
     
     # Step 3: Ingest files into vector stores
@@ -318,7 +339,7 @@ def get_or_create_experiment(client, experiment_name, description):
     return experiment
 
 # Helper function to execute pipeline (always executes)
-def execute_pipeline(client, experiment, pipeline_obj, run_name):
+def execute_pipeline(client, experiment, pipeline_obj, run_name, params=None):
     """Execute pipeline run."""
     print("Starting pipeline execution...")
     
@@ -336,7 +357,8 @@ def execute_pipeline(client, experiment, pipeline_obj, run_name):
         experiment_id=experiment.experiment_id,
         job_name=run_name,
         pipeline_id=pipeline_obj.pipeline_id,
-        version_id=version_id
+        version_id=version_id,
+        params=params or {}
     )
     print(f"Pipeline execution started with run ID: {run_result.run_id}")
     return run_result
@@ -348,10 +370,13 @@ if __name__ == "__main__":
     bearer_token = os.environ["BEARER_TOKEN"]
     # Set to "false" to disable SSL verification for self-signed certificates
     ssl_verify = os.environ.get("SSL_VERIFY", "true").lower() != "false"
+    # Set to "true" to delete and recreate vector stores (useful for testing new RAG content)
+    recreate_stores = os.environ.get("RECREATE_VECTOR_STORES", "false").lower() == "true"
 
     # 1. Create KFP client
     print(f'Connecting to Data Science Pipelines: {kubeflow_endpoint}')
     print(f'SSL verification: {ssl_verify}')
+    print(f'Recreate vector stores: {recreate_stores}')
     kfp_client = Client(
         host=kubeflow_endpoint,
         existing_token=bearer_token,
@@ -377,7 +402,10 @@ if __name__ == "__main__":
     )
     print(f"Experiment ready with ID: {experiment.experiment_id}")
 
-    # 5. Execute pipeline
+    # 5. Execute pipeline with parameters
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"ingest-execution-{timestamp}"
-    run_result = execute_pipeline(kfp_client, experiment, pipeline_obj, run_name) 
+    run_result = execute_pipeline(
+        kfp_client, experiment, pipeline_obj, run_name,
+        params={"recreate_stores": recreate_stores}
+    )
