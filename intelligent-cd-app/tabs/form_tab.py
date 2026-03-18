@@ -8,13 +8,9 @@ import os
 import json
 import ast
 import subprocess
-import random
-import string
 from typing import List
 import gradio as gr
 from llama_stack_client import LlamaStackClient
-from llama_stack_client.lib.agents.react.agent import ReActAgent
-from llama_stack_client.lib.agents.react.tool_parser import ReActOutput
 from utils import get_logger
 
 
@@ -34,14 +30,7 @@ class FormTab:
         self.config_generate_helm = self._load_step_config("GENERATE_HELM")
         self.config_push_github = self._load_step_config("PUSH_GITHUB")
         self.config_generate_argocd = self._load_step_config("GENERATE_ARGOCD")
-        
-        # Initialize all agents and sessions once during initialization
-        self.logger.info("Initializing all ReActAgents for form tab steps...")
-        self.agent_resources, self.session_id_resources = self._initialize_agent("generate_resources", self.config_generate_resources)
-        self.agent_helm, self.session_id_helm = self._initialize_agent("generate_helm", self.config_generate_helm)
-        self.agent_github, self.session_id_github = self._initialize_agent("push_github", self.config_push_github)
-        self.agent_argocd, self.session_id_argocd = self._initialize_agent("generate_argocd_app", self.config_generate_argocd)
-        self.logger.info("✅ All ReActAgents initialized successfully")
+        self.logger.info("✅ All configurations loaded successfully")
     
     def _load_step_config(self, step_key: str) -> dict:
         """Load step-specific configuration from environment variables
@@ -76,7 +65,7 @@ class FormTab:
                 self.logger.error(f"Failed to parse {env_prefix}TOOLS: {e}")
                 tools = []
         
-        # Process tools to convert vector_db_names to vector_db_ids
+        # Process tools to convert vector_db_names to vector_store_ids
         tools = self._process_tools(tools)
         
         # Load model prompt
@@ -103,51 +92,34 @@ class FormTab:
         }
     
     def _process_tools(self, tools: list) -> list:
-        """Process tools to convert vector_db_names to vector_db_ids and string tools to dict format with type field"""
+        """Process tools to convert vector_db_names to vector_store_ids for file_search tools.
+        
+        Supports the /v1/responses API tool formats:
+        - MCP tools: {"type": "mcp", "server_label": "...", "server_url": "..."}
+        - File search: {"type": "file_search", "vector_store_ids": [...]}
+        """
         processed_tools = []
         
         for tool in tools:
-            # Handle string tools (like 'mcp::openshift') - parse type and name
-            if isinstance(tool, str):
-                # Parse format like "mcp::openshift" or "builtin::rag"
-                if '::' in tool:
-                    tool_type, tool_name = tool.split('::', 1)
-                    processed_tools.append({"type": tool_type, "name": tool_name})
-                else:
-                    # If no separator, treat entire string as name (fallback)
-                    processed_tools.append({"name": tool})
-                continue
-            
             # Handle dict tools
             if isinstance(tool, dict):
                 tool_copy = tool.copy()
-
-                self.logger.info(f"Tool is a dict: {tool_copy}")
+                self.logger.info(f"Processing tool: {tool_copy}")
                 
-                # Parse name field if it contains '::' separator to extract type
-                if 'name' in tool_copy and isinstance(tool_copy['name'], str) and '::' in tool_copy['name']:
-                    tool_type, tool_name = tool_copy['name'].split('::', 1)
-                    tool_copy['type'] = tool_type
-                    tool_copy['name'] = tool_name
-                
-                # Check if this tool has args with vector_db_names
-                if 'args' in tool_copy and isinstance(tool_copy['args'], dict):
-                    args = tool_copy['args'].copy()
-
-                    self.logger.info(f"Args is a dict: {args}")
-                    if 'vector_db_names' in args:
-                        names = args['vector_db_names']
-                        if isinstance(names, list):
-                            # Convert names to IDs
-                            ids = [self._get_vector_store_id_by_name(name) for name in names]
-                            # Replace vector_db_names with vector_db_ids
-                            args['vector_db_ids'] = ids
-                            del args['vector_db_names']
-                            self.logger.info(f"Converted vector_db_names {names} to vector_db_ids {ids}")
-                        
-                    tool_copy['args'] = args
+                # Handle file_search tools with vector_db_names (convert to vector_store_ids)
+                if tool_copy.get('type') == 'file_search' and 'vector_db_names' in tool_copy:
+                    names = tool_copy['vector_db_names']
+                    if isinstance(names, list):
+                        # Convert names to IDs
+                        ids = [self._get_vector_store_id_by_name(name) for name in names]
+                        tool_copy['vector_store_ids'] = ids
+                        del tool_copy['vector_db_names']
+                        self.logger.info(f"Converted vector_db_names {names} to vector_store_ids {ids}")
                 
                 processed_tools.append(tool_copy)
+            elif isinstance(tool, str):
+                # Legacy string format - log warning and skip
+                self.logger.warning(f"Skipping legacy string tool format '{tool}'. Use dict format for /v1/responses API.")
             else:
                 # Unknown type, keep as-is
                 processed_tools.append(tool)
@@ -194,86 +166,122 @@ class FormTab:
         
         return "  \n".join(config_lines)
 
-    def _initialize_agent(self, step_name: str, config: dict, session_name: str = None) -> tuple[ReActAgent, str]:
-        """Initialize agent and session for a specific step
+    def _call_responses_api(self, user_message: str, config: dict) -> str:
+        """Call the /v1/responses API directly
         
         Args:
-            step_name: Name of the step (e.g., "generate_resources", "generate_helm", etc.)
-            config: Dictionary with keys: sampling_params, tools, prompt
-            session_name: Optional custom session name. If not provided, uses step_name
+            user_message: The user's message/prompt
+            config: Configuration dict with tools, prompt, and sampling_params
             
         Returns:
-            Tuple of (agent, session_id)
+            The response text content
         """
-        formatted_prompt = config["prompt"]
-        sampling_params = config["sampling_params"]
         tools = config["tools"]
-
-        # Log agent creation details
+        instructions = config["prompt"]
+        
         self.logger.info("=" * 60)
-        self.logger.info(f"Creating ReActAgent for step: {step_name}")
+        self.logger.info("Calling /v1/responses API")
         self.logger.info("=" * 60)
         self.logger.info(f"Model: {self.model}")
-        self.logger.info(f"Toolgroups available ({len(tools)}): {tools}")
-        self.logger.info(f"Sampling params: {sampling_params}")
+        self.logger.info(f"Tools: {tools}")
         self.logger.info(f"Max infer iters: {self.max_infer_iters}")
-        self.logger.info(f"Formatted prompt: {formatted_prompt[:100]}")
-
-        agent = ReActAgent(
-            client=self.client,
-            model=self.model,
-            instructions=formatted_prompt,
-            tools=tools,
-            json_response_format={
-                "type": "json_schema",
-                "json_schema": ReActOutput.model_json_schema(),
-            }
-        )
+        self.logger.info(f"Instructions length: {len(instructions)}")
+        self.logger.info(f"User message: {user_message[:200]}...")
         
-        self.logger.info("✅ ReActAgent created successfully")
-
-        # Create session for the agent
-        if session_name is None:
-            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-            session_name = f"{step_name}_session_{random_suffix}"
-        session = agent.create_session(session_name=session_name)
-        
-        # Handle both object with .id attribute and direct string return
-        if hasattr(session, 'id'):
-            session_id = session.id
-        else:
-            session_id = str(session)
-        
-        self.logger.info(f"✅ Session created: {session_id}")
-        self.logger.info("=" * 60)
-        return agent, session_id
-    
-    def _extract_answer_content(self, response) -> str:
-        """Extract answer content from agent response"""
-        response_content = response.output_message.content
-        final_answer = ""
-        
-        if response_content and isinstance(response_content, str):
-            try:
-                # Try to parse as JSON to extract just the answer part
-                content_json = json.loads(response_content)
-                if 'answer' in content_json and content_json['answer']:
-                    final_answer = content_json['answer']
-                else:
-                    # If no answer field, use the full content
-                    final_answer = response_content
-            except json.JSONDecodeError:
-                # If not JSON, use the content as-is
-                final_answer = response_content
+        try:
             
-            # Replace \n with actual line breaks
-            final_answer = final_answer.replace('\\n', '\n')
+            # Call the responses API directly (non-streaming)
+            response = self.client.responses.create(
+                model=self.model,
+                input=user_message,
+                instructions=instructions,
+                tools=tools if tools else None,
+                include=["file_search_call.results"],
+                max_infer_iters=self.max_infer_iters
+            )
+            
+            self.logger.info(f"Response received - status: {getattr(response, 'status', 'unknown')}")
+            self.logger.info(f"Response ID: {getattr(response, 'id', 'unknown')}")
+            
+            # Log output structure for debugging
+            if hasattr(response, 'output') and response.output:
+                for i, item in enumerate(response.output):
+                    item_type = type(item).__name__
+                    self.logger.info(f"Output[{i}] type: {item_type}")
+                    if hasattr(item, 'type'):
+                        self.logger.info(f"Output[{i}].type: {item.type}")
+            
+            # Extract the output text - try output_text first (like chatbot.py example)
+            output_text = getattr(response, "output_text", None)
+            
+            if not output_text:
+                # Fallback to manual extraction
+                output_text = self._extract_response_text(response)
+            
+            if not output_text:
+                # Last resort - convert response to string
+                self.logger.warning("No output_text found, using str(response)")
+                output_text = str(response)
+            
+            self.logger.info(f"✅ Response extracted: {len(output_text)} characters")
+            return output_text
+            
+        except Exception as e:
+            self.logger.error(f"Error calling /v1/responses API: {str(e)}")
+            raise
+
+    def _extract_response_text(self, response) -> str:
+        """Extract text content from the responses API response
         
-        return final_answer
+        Args:
+            response: The response object from client.responses.create()
+            
+        Returns:
+            The extracted text content
+        """
+        # First check for output_text property (llama-stack convenience property)
+        if hasattr(response, 'output_text') and response.output_text:
+            self.logger.debug(f"Found output_text: {len(response.output_text)} chars")
+            return response.output_text
+        
+        # Check for text property in response.text
+        if hasattr(response, 'text') and response.text:
+            if hasattr(response.text, 'format'):
+                self.logger.debug(f"Found response.text with format")
+        
+        # Parse the output array
+        if hasattr(response, 'output') and response.output:
+            texts = []
+            for item in response.output:
+                item_type = type(item).__name__
+                
+                # Look for message type outputs with content
+                if hasattr(item, 'type') and item.type == 'message':
+                    if hasattr(item, 'content') and item.content:
+                        for content_item in item.content:
+                            if hasattr(content_item, 'text') and content_item.text:
+                                texts.append(content_item.text)
+                            elif hasattr(content_item, 'type') and content_item.type == 'output_text':
+                                if hasattr(content_item, 'text') and content_item.text:
+                                    texts.append(content_item.text)
+                
+                # Direct text attribute
+                elif hasattr(item, 'text') and item.text:
+                    texts.append(item.text)
+                
+                # MCP call results might have output
+                elif 'McpCall' in item_type and hasattr(item, 'output'):
+                    self.logger.debug(f"Found MCP call output")
+            
+            if texts:
+                result = '\n'.join(filter(None, texts))
+                self.logger.debug(f"Extracted {len(texts)} text segments, total {len(result)} chars")
+                return result
+        
+        # Fallback
+        self.logger.warning(f"Could not extract text from response")
+        return ""
 
-
-
-    
     def generate_resources(self, namespace: str, helm_chart: str, workload_type: str, supporting_resources: List[str]) -> str:
         """Step 1: Generate Kubernetes resources by taking resources from OCP and trimming unnecessary fields"""
         self.logger.info(f"Step 1 - Generate Resources:")
@@ -282,33 +290,12 @@ class FormTab:
         self.logger.info(f"  Workload Type: {workload_type}")
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
 
-        # Use pre-initialized agent for step 1
-        message = f"Get cleaned YAML for {workload_type} and any referenced {supporting_resources} in \'{namespace}\' namespace. Remove unnecessary fields and format with '---' separators for oc apply. Make sure to remove the namespace from all the YAMLs as well as the route host from the routes"
+        # Ask for docs first (triggers file_search), then resources (triggers MCP)
+        message = f"First check GitOps best practices in the documentation, then show {workload_type} in {namespace} namespace as clean YAML."
         
-        response = self.agent_resources.create_turn(
-            messages=[{"role": "user", "content": message}],
-            session_id=self.session_id_resources,
-            stream=False,
-        )
-        
-        # Log response structure for debugging
-        self.logger.info("=" * 60)
-        self.logger.info("Response Structure Analysis:")
-        self.logger.info("=" * 60)
-
-        
-        # Log all steps if available
-        if hasattr(response, 'steps') and response.steps:
-            self.logger.info(f"Number of steps: {len(response.steps)}")
-            for i, step in enumerate(response.steps):
-                self.logger.debug(f"Step {i}: {step}")
-        
-        # Extract answer content
-        final_answer = self._extract_answer_content(response)
+        final_answer = self._call_responses_api(message, self.config_generate_resources)
         
         self.logger.info(f"✅ Step 1 completed. Generated {len(final_answer)} characters of YAML")
-        
-        # Return the processed answer content
         return final_answer
 
     def apply_yaml(self, namespace: str, yaml_content: str) -> str:
@@ -360,33 +347,11 @@ class FormTab:
         self.logger.info(f"  Supporting Resources: {supporting_resources}")
         self.logger.info(f"  Resources YAML Length: {len(resources_yaml) if resources_yaml else 0} characters")
 
-        # Use pre-initialized agent for step 2
         message = f"Create a Helm chart from the following Kubernetes resources: Namespace: {namespace}, Helm Chart Name: {helm_chart if helm_chart else 'generated-chart'}, Workload Type: {workload_type}, Supporting Resources: {', '.join(supporting_resources) if supporting_resources else 'None'}, Resources YAML: {resources_yaml if resources_yaml else 'No resources provided'}."
         
-        response = self.agent_helm.create_turn(
-            messages=[{"role": "user", "content": message}],
-            session_id=self.session_id_helm,
-            stream=False,
-        )
-
-        # Log response structure for debugging
-        self.logger.info("=" * 60)
-        self.logger.info("Response Structure Analysis:")
-        self.logger.info("=" * 60)
-
-        
-        # Log all steps if available
-        if hasattr(response, 'steps') and response.steps:
-            self.logger.info(f"Number of steps: {len(response.steps)}")
-            for i, step in enumerate(response.steps):
-                self.logger.debug(f"Step {i}: {step}")
-        
-        # Extract answer content
-        helm_chart_content = self._extract_answer_content(response)
+        helm_chart_content = self._call_responses_api(message, self.config_generate_helm)
         
         self.logger.info(f"✅ Step 2 completed. Generated Helm chart ({len(helm_chart_content)} characters)")
-        
-        # Return the Helm chart content
         return helm_chart_content
 
     def apply_helm(self, helm_chart: str, namespace: str, values: str = "") -> str:
@@ -404,33 +369,11 @@ class FormTab:
         self.logger.info(f"  Application Content Length: {len(application_content) if application_content else 0} characters")
         self.logger.info(f"  Repository URL: {self.github_gitops_repo}")
 
-        # Use pre-initialized agent for step 3
-        message = f"You are given this Kubernetes manifest file. It describes different Kubernetes resources. Use the ReActAgent to commit the respective YAML to GitHub.\n\nrepo {self.github_gitops_repo}.\n\nbranch: main\n\ncommit message: \"☕🧰 Make it GitOps! ☕🧰\"\n\nFile information:\n\n- path: It will be just one file named {namespace}.yaml with the content of that YAML: \n\n\n{application_content}"
+        message = f"You are given this Kubernetes manifest file. It describes different Kubernetes resources. Commit the respective YAML to GitHub.\n\nrepo {self.github_gitops_repo}.\n\nbranch: main\n\ncommit message: \"☕🧰 Make it GitOps! ☕🧰\"\n\nFile information:\n\n- path: It will be just one file named {namespace}.yaml with the content of that YAML: \n\n\n{application_content}"
         
-        response = self.agent_github.create_turn(
-            messages=[{"role": "user", "content": message}],
-            session_id=self.session_id_github,
-            stream=False,
-        )
-
-        # Log response structure for debugging
-        self.logger.info("=" * 60)
-        self.logger.info("Response Structure Analysis:")
-        self.logger.info("=" * 60)
-
-        
-        # Log all steps if available
-        if hasattr(response, 'steps') and response.steps:
-            self.logger.info(f"Number of steps: {len(response.steps)}")
-            for i, step in enumerate(response.steps):
-                self.logger.debug(f"Step {i}: {step}")
-        
-        # Extract answer content
-        push_result = self._extract_answer_content(response)
+        push_result = self._call_responses_api(message, self.config_push_github)
         
         self.logger.info(f"✅ Step 3 completed. Push result: {push_result[:200]}...")
-        
-        # Format result to show success/failure and verification info
         return push_result
 
     def generate_argocd_app(self, namespace: str) -> str:
@@ -442,30 +385,9 @@ class FormTab:
 
         message = f"Generate an ArgoCD Application manifest with the following configuration: Repository URL: {self.github_gitops_repo}, and namespace {new_namespace}. This special time, the YAMLs are in the root folder of the repository, not in a subfolder."
         
-        response = self.agent_argocd.create_turn(
-            messages=[{"role": "user", "content": message}],
-            session_id=self.session_id_argocd,
-            stream=False,
-        )
-
-        # Log response structure for debugging
-        self.logger.info("=" * 60)
-        self.logger.info("Response Structure Analysis:")
-        self.logger.info("=" * 60)
-
-        
-        # Log all steps if available
-        if hasattr(response, 'steps') and response.steps:
-            self.logger.info(f"Number of steps: {len(response.steps)}")
-            for i, step in enumerate(response.steps):
-                self.logger.debug(f"Step {i}: {step}")
-        
-        # Extract answer content
-        argocd_app_content = self._extract_answer_content(response)
+        argocd_app_content = self._call_responses_api(message, self.config_generate_argocd)
         
         self.logger.info(f"✅ Step 4 completed. Generated ArgoCD App manifest ({len(argocd_app_content)} characters)")
-        
-        # Return the ArgoCD Application manifest content
         return argocd_app_content
 
     def apply_argocd_app(self, argocd_app_content: str) -> str:
@@ -499,5 +421,3 @@ class FormTab:
             output = ""
 
         return f"🔧 Apply ArgoCD App to OpenShift:\n\n**ArgoCD App Content Length:** {len(argocd_app_content)} characters\n\n**Output:**\n{output}\n\n**Status:** {status_message}"
-
-

@@ -8,7 +8,6 @@ apis:
 - inference
 - safety
 - scoring
-# - telemetry
 - tool_runtime
 - vector_io
 - files
@@ -17,14 +16,14 @@ providers:
   - provider_id: ${env.VLLM_URL:+vllm-inference}
     provider_type: remote::vllm
     config:
-      url: ${env.VLLM_URL:=}
+      base_url: ${env.VLLM_URL:=}
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
   - provider_id: ${env.VLLM_EMBEDDING_URL:+vllm-embedding}
     provider_type: remote::vllm
     config:
-      url: ${env.VLLM_EMBEDDING_URL:=}
+      base_url: ${env.VLLM_EMBEDDING_URL:=}
       max_tokens: ${env.VLLM_EMBEDDING_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_EMBEDDING_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_EMBEDDING_TLS_VERIFY:=true}
@@ -39,7 +38,7 @@ providers:
   - provider_id: ${env.WATSONX_API_KEY:+watsonx}
     provider_type: remote::watsonx
     config:
-      url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
+      base_url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
       api_key: ${env.WATSONX_API_KEY:=}
       project_id: ${env.WATSONX_PROJECT_ID:=}
   - provider_id: ${env.AZURE_API_KEY:+azure}
@@ -59,14 +58,6 @@ providers:
     config:
       api_key: ${env.OPENAI_API_KEY:=}
       base_url: ${env.OPENAI_BASE_URL:=https://api.openai.com/v1}
-  # telemetry:
-  # - provider_id: meta-reference
-  #   provider_type: inline::meta-reference
-  #   config:
-  #     service_name: "${env.OTEL_SERVICE_NAME:=}"
-  #     sinks: ${env.TELEMETRY_SINKS:=console}
-  #     sqlite_db_path: /opt/app-root/src/.llama/distributions/rh/trace_store.db
-  #     otel_exporter_otlp_endpoint: ${env.OTEL_EXPORTER_OTLP_ENDPOINT:=}
   vector_io:
   - provider_id: milvus
     provider_type: inline::milvus
@@ -105,6 +96,22 @@ providers:
       persistence:
         backend: kv_default
         namespace: vector_io::pgvector
+  - provider_id: ${env.ENABLE_QDRANT:+qdrant-remote}
+    provider_type: remote::qdrant
+    config:
+      location: ${env.QDRANT_LOCATION:=}
+      url: ${env.QDRANT_URL:=}
+      port: ${env.QDRANT_PORT:=6333}
+      grpc_port: ${env.QDRANT_GRPC_PORT:=6334}
+      prefer_grpc: ${env.QDRANT_PREFER_GRPC:=false}
+      https: ${env.QDRANT_HTTPS:=}
+      api_key: ${env.QDRANT_API_KEY:=}
+      prefix: ${env.QDRANT_PREFIX:=}
+      timeout: ${env.QDRANT_TIMEOUT:=}
+      host: ${env.QDRANT_HOST:=}
+      persistence:
+        backend: kv_default
+        namespace: vector_io::qdrant_remote
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
@@ -129,18 +136,18 @@ providers:
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
-    module: llama_stack_provider_lmeval==0.2.4
+    module: llama_stack_provider_lmeval==0.4.2
     config:
       use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
       base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
   - provider_id: ${env.TRUSTYAI_EMBEDDING_MODEL:+trustyai_ragas_inline}
     provider_type: inline::trustyai_ragas
-    module: llama_stack_provider_ragas.inline
+    module: llama_stack_provider_ragas.inline==0.5.1
     config:
       embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
   - provider_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_ragas_remote}
     provider_type: remote::trustyai_ragas
-    module: llama_stack_provider_ragas.remote
+    module: llama_stack_provider_ragas.remote==0.5.1
     config:
       embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
       kubeflow_config:
@@ -273,22 +280,10 @@ registered_resources:
     provider_id: tavily-search
   - toolgroup_id: builtin::rag
     provider_id: rag-runtime
-  # - toolgroup_id: mcp::openshift
-  #   provider_id: model-context-protocol
-  #   mcp_endpoint:
-  #     uri: "${env.MCP_OCP_URL:=http://mcp-service:8080}/sse"
-  # - toolgroup_id: mcp::argocd
-  #   provider_id: model-context-protocol
-  #   mcp_endpoint:
-  #     uri: "${env.MCP_ARGOCD_URL:=http://mcp-service:8080}/sse"
-  # - toolgroup_id: mcp::servicenow
-  #   provider_id: model-context-protocol
-  #   mcp_endpoint:
-  #     uri: "${env.MCP_SERVICENOW_URL:=http://servicenow-mcp:8080}/sse"
-  # - toolgroup_id: mcp::github
-  #   provider_id: model-context-protocol
-  #   mcp_endpoint:
-  #     uri: "https://api.githubcopilot.com/mcp/"
+vector_stores:
+  annotation_prompt_params:
+    enable_annotations: true
+    annotation_instruction_template: "Cite sources immediately at the end of sentences using <|file-id|> format."
 telemetry:
   enabled: true
 server:

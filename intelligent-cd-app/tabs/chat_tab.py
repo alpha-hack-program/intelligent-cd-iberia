@@ -1,18 +1,14 @@
 """
 Chat tab functionality for Intelligent CD Chatbot.
 
-This module handles the main chat interface with LLM using ReAct methodology.
+This module handles the main chat interface with LLM using the /v1/responses API.
 """
 
 import os
 import json
 import ast
-import random
-import string
 from typing import List, Dict
 from llama_stack_client import LlamaStackClient
-from llama_stack_client.lib.agents.react.agent import ReActAgent
-from llama_stack_client.lib.agents.react.tool_parser import ReActOutput
 from utils import get_logger
 
 
@@ -25,39 +21,37 @@ class ChatTab:
         self.logger = get_logger("chat")
         self.max_infer_iters = int(os.getenv("CHAT_MAX_INFER_ITERS", "15"))
         
-        # Load configuration from environment variables
-        self.sampling_params, self.tools_json, self.model_prompt = self._load_config()
-
-        # Initialize agent and session for the entire chat
-        self.agent, self.session_id = self._initialize_agent()
+        self.sampling_params, self.tools, self.model_prompt = self._load_config()
     
     def _load_config(self) -> tuple[dict, list, str]:
         """Load all configuration from environment variables"""
-        # Load sampling parameters
         sampling_params_str = os.getenv("CHAT_SAMPLING_PARAMS", "{}")
         sampling_params = json.loads(sampling_params_str)
         
-        # Load tools
         tools_str = os.getenv("CHAT_TOOLS", "[]")
         
-        # Try to parse as JSON first, fall back to Python literal
         try:
             tools = json.loads(tools_str)
         except json.JSONDecodeError:
             try:
-                # Handle Python syntax with single quotes
                 tools = ast.literal_eval(tools_str)
             except (ValueError, SyntaxError) as e:
                 self.logger.error(f"Failed to parse CHAT_TOOLS: {e}")
                 tools = []
         
-        # Process tools to convert vector_db_names to vector_db_ids
         tools = self._process_tools(tools)
         
-        # Load model prompt
-        model_prompt = os.getenv("CHAT_PROMPT", "You are a helpful assistant.")
+        prompt_file = os.getenv("CHAT_PROMPT_FILE", "")
+        if prompt_file:
+            try:
+                with open(prompt_file, 'r') as f:
+                    model_prompt = f.read()
+            except Exception as e:
+                self.logger.warning(f"Failed to read prompt file {prompt_file}: {e}, using env var")
+                model_prompt = os.getenv("CHAT_PROMPT", "You are a helpful assistant.")
+        else:
+            model_prompt = os.getenv("CHAT_PROMPT", "You are a helpful assistant.")
         
-        # Debug logging
         self.logger.debug(f"CHAT_SAMPLING_PARAMS: {sampling_params}")
         self.logger.debug(f"CHAT_TOOLS: {tools}")
         self.logger.debug(f"CHAT_PROMPT: {str(model_prompt)[:200]}...")
@@ -65,50 +59,31 @@ class ChatTab:
         return sampling_params, tools, model_prompt
     
     def _process_tools(self, tools: list) -> list:
-        """Process tools to convert vector_db_names to vector_db_ids and string tools to dict format with type field"""
+        """Process tools to convert vector_db_names to vector_store_ids for file_search tools.
+        
+        Supports the /v1/responses API tool formats:
+        - MCP tools: {"type": "mcp", "server_label": "...", "server_url": "..."}
+        - File search: {"type": "file_search", "vector_store_ids": [...]}
+        """
         processed_tools = []
         
         for tool in tools:
-            # Handle string tools (like 'mcp::openshift') - parse type and name
-            if isinstance(tool, str):
-                # Parse format like "mcp::openshift" or "builtin::rag"
-                if '::' in tool:
-                    tool_type, tool_name = tool.split('::', 1)
-                    processed_tools.append({"type": tool_type, "name": tool_name})
-                else:
-                    # If no separator, treat entire string as name (fallback)
-                    processed_tools.append({"name": tool})
-                continue
-            
-            # Handle dict tools
             if isinstance(tool, dict):
                 tool_copy = tool.copy()
+                self.logger.info(f"Processing tool: {tool_copy}")
                 
-                # Parse name field if it contains '::' separator to extract type
-                if 'name' in tool_copy and isinstance(tool_copy['name'], str) and '::' in tool_copy['name']:
-                    tool_type, tool_name = tool_copy['name'].split('::', 1)
-                    tool_copy['type'] = tool_type
-                    tool_copy['name'] = tool_name
-                
-                # Check if this tool has args with vector_db_names
-                if 'args' in tool_copy and isinstance(tool_copy['args'], dict):
-                    args = tool_copy['args'].copy()
-                    
-                    if 'vector_db_names' in args:
-                        names = args['vector_db_names']
-                        if isinstance(names, list):
-                            # Convert names to IDs
-                            ids = [self._get_vector_store_id_by_name(name) for name in names]
-                            # Replace vector_db_names with vector_db_ids
-                            args['vector_db_ids'] = ids
-                            del args['vector_db_names']
-                            self.logger.info(f"Converted vector_db_names {names} to vector_db_ids {ids}")
-                        
-                    tool_copy['args'] = args
+                if tool_copy.get('type') == 'file_search' and 'vector_db_names' in tool_copy:
+                    names = tool_copy['vector_db_names']
+                    if isinstance(names, list):
+                        ids = [self._get_vector_store_id_by_name(name) for name in names]
+                        tool_copy['vector_store_ids'] = ids
+                        del tool_copy['vector_db_names']
+                        self.logger.info(f"Converted vector_db_names {names} to vector_store_ids {ids}")
                 
                 processed_tools.append(tool_copy)
+            elif isinstance(tool, str):
+                self.logger.warning(f"Skipping legacy string tool format '{tool}'. Use dict format for /v1/responses API.")
             else:
-                # Unknown type, keep as-is
                 processed_tools.append(tool)
         
         return processed_tools
@@ -117,7 +92,6 @@ class ChatTab:
         """Get vector store ID by name"""
         try:
             list_response = self.client.vector_stores.list()
-            # Access the data attribute which contains the list of VectorStore objects
             vector_stores = list_response.data if hasattr(list_response, 'data') else list_response
             
             for vs in vector_stores:
@@ -125,60 +99,17 @@ class ChatTab:
                     self.logger.info(f"Found vector store '{name}' -> '{vs.id}'")
                     return vs.id
             
-            # If not found by name, assume it might be an ID already
             self.logger.warning(f"Vector store '{name}' not found, using as ID")
             return name
         except Exception as e:
             self.logger.warning(f"Error looking up vector store by name '{name}': {str(e)}")
             return name
-
-    def _initialize_agent(self) -> tuple[ReActAgent, str]:
-        """Initialize agent and session that will be reused for the entire chat"""
-
-        formatted_prompt = self.model_prompt.format(tool_groups=self.tools_json)
-
-        # Log agent creation details
-        self.logger.info("=" * 60)
-        self.logger.info("Creating Chat Tab ReActAgent")
-        self.logger.info("=" * 60)
-        self.logger.info(f"Model: {self.model}")
-        self.logger.info(f"Toolgroups available ({len(self.tools_json)}): {self.tools_json}")
-        self.logger.info(f"Max infer iters: {self.max_infer_iters}")
-        self.logger.info(f"Sampling params: {self.sampling_params}")
-
-        agent = ReActAgent(
-            client=self.client,
-            model=self.model,
-            instructions=formatted_prompt,
-            tools=self.tools_json,
-            json_response_format={
-                "type": "json_schema",
-                "json_schema": ReActOutput.model_json_schema(),
-            }
-        )
-        
-        self.logger.info("✅ ReActAgent created successfully")
-
-        # Create session for the agent
-        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        session_name = f"OCP_Chat_Session_{random_suffix}"
-        session = agent.create_session(session_name=session_name)
-        
-        # Handle both object with .id attribute and direct string return
-        if hasattr(session, 'id'):
-            session_id = session.id
-        else:
-            session_id = str(session)
-        
-        self.logger.info(f"✅ Session created: {session_id}")
-        self.logger.info("=" * 60)
-        return agent, session_id
     
     def get_config_display(self) -> str:
         """Get formatted configuration for display in UI"""
         config_lines = [
             f"**Model:** {self.model}",
-            f"**Tools:** {self.tools_json}",
+            f"**Tools:** {self.tools}",
             f"**Max iterations:** {self.max_infer_iters}",
             f"**Temperature:** {self.sampling_params.get('temperature', 'default')}",
             f"**Top P:** {self.sampling_params.get('top_p', 'default')}",
@@ -186,83 +117,136 @@ class ChatTab:
         ]
         
         return "  \n".join(config_lines)
+
+    def _call_responses_api(self, user_message: str) -> object:
+        """Call the /v1/responses API and return the raw response object"""
+        self.logger.info("=" * 60)
+        self.logger.info("Calling /v1/responses API")
+        self.logger.info("=" * 60)
+        self.logger.info(f"Model: {self.model}")
+        self.logger.info(f"Tools: {self.tools}")
+        self.logger.info(f"Max infer iters: {self.max_infer_iters}")
+        self.logger.info(f"Instructions length: {len(self.model_prompt)}")
+        self.logger.info(f"User message: {user_message[:200]}...")
+        
+        response = self.client.responses.create(
+            model=self.model,
+            input=user_message,
+            instructions=self.model_prompt,
+            tools=self.tools if self.tools else None,
+            include=["file_search_call.results"],
+            max_infer_iters=self.max_infer_iters
+        )
+        
+        self.logger.info(f"Response received - status: {getattr(response, 'status', 'unknown')}")
+        self.logger.info(f"Response ID: {getattr(response, 'id', 'unknown')}")
+        
+        if hasattr(response, 'output') and response.output:
+            for i, item in enumerate(response.output):
+                item_type = type(item).__name__
+                self.logger.info(f"Output[{i}] type: {item_type}")
+                if hasattr(item, 'type'):
+                    self.logger.info(f"Output[{i}].type: {item.type}")
+        
+        return response
+
+    def _extract_response_text(self, response) -> str:
+        """Extract text content from the responses API response"""
+        if hasattr(response, 'output_text') and response.output_text:
+            self.logger.debug(f"Found output_text: {len(response.output_text)} chars")
+            return response.output_text
+        
+        if hasattr(response, 'output') and response.output:
+            texts = []
+            for item in response.output:
+                if hasattr(item, 'type') and item.type == 'message':
+                    if hasattr(item, 'content') and item.content:
+                        for content_item in item.content:
+                            if hasattr(content_item, 'text') and content_item.text:
+                                texts.append(content_item.text)
+                            elif hasattr(content_item, 'type') and content_item.type == 'output_text':
+                                if hasattr(content_item, 'text') and content_item.text:
+                                    texts.append(content_item.text)
+                elif hasattr(item, 'text') and item.text:
+                    texts.append(item.text)
+            
+            if texts:
+                result = '\n'.join(filter(None, texts))
+                self.logger.debug(f"Extracted {len(texts)} text segments, total {len(result)} chars")
+                return result
+        
+        self.logger.warning("Could not extract text from response")
+        return ""
+
+    def _extract_thinking_steps(self, response) -> list:
+        """Extract tool call information as thinking steps from the response output"""
+        thinking_steps = []
+        
+        if not hasattr(response, 'output') or not response.output:
+            return thinking_steps
+        
+        for item in response.output:
+            item_type = type(item).__name__
+            
+            if 'McpCall' in item_type or (hasattr(item, 'type') and item.type == 'mcp_call'):
+                title = "🔧 MCP Tool Call"
+                content = ""
+                if hasattr(item, 'server_label'):
+                    title = f"🔧 MCP: {item.server_label}"
+                if hasattr(item, 'name'):
+                    content += f"**Tool:** {item.name}\n"
+                if hasattr(item, 'arguments'):
+                    args_str = json.dumps(item.arguments, indent=2) if isinstance(item.arguments, dict) else str(item.arguments)
+                    content += f"**Arguments:**\n```json\n{args_str}\n```\n"
+                if hasattr(item, 'output'):
+                    output_str = str(item.output)[:500]
+                    content += f"**Output:**\n```\n{output_str}\n```"
+                thinking_steps.append({"title": title, "content": content})
+            
+            elif hasattr(item, 'type') and item.type == 'file_search_call':
+                title = "🔍 File Search"
+                content = ""
+                if hasattr(item, 'queries'):
+                    content += f"**Queries:** {item.queries}\n"
+                if hasattr(item, 'results') and item.results:
+                    content += f"**Results:** {len(item.results)} documents found"
+                thinking_steps.append({"title": title, "content": content})
+        
+        return thinking_steps
     
     def chat_completion(self, message: str, chat_history: List[Dict[str, str]]) -> tuple:
-        """Handle chat with LLM using Agent → Session → Turn structure"""
+        """Handle chat with LLM using /v1/responses API"""
         from gradio import ChatMessage
         
-        # Add user message to history
         chat_history.append(ChatMessage(role="user", content=message))
         
-        # Get LLM response using Agent API with thinking steps
-        result, thinking_steps = self._execute_agent_turn_with_thinking(message)
+        try:
+            response = self._call_responses_api(message)
+            
+            thinking_steps = self._extract_thinking_steps(response)
+            
+            result = self._extract_response_text(response)
+            if not result:
+                self.logger.warning("No output_text found, using str(response)")
+                result = str(response)
+            
+            self.logger.info(f"✅ Response extracted: {len(result)} characters")
+            
+        except Exception as e:
+            self.logger.error(f"Error calling /v1/responses API: {str(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            result = f"Error: {str(e)}"
+            thinking_steps = []
         
-        # Add thinking steps as collapsible sections
         if thinking_steps:
-            for i, step in enumerate(thinking_steps):
+            for step in thinking_steps:
                 chat_history.append(ChatMessage(
                     role="assistant", 
                     content=step["content"],
                     metadata={"title": step["title"]}
                 ))
         
-        # Add final assistant response
         chat_history.append(ChatMessage(role="assistant", content=result))
         
         return chat_history, ""
-    
-    def _execute_agent_turn_with_thinking(self, message: str) -> tuple[str, list]:
-        """Execute agent turn and capture thinking steps for display"""
-        import json
-        self.logger.debug(f"Executing agent turn with thinking capture")
-        
-        thinking_steps = []
-        
-        try:
-            response = self.agent.create_turn(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": message
-                    }
-                ],
-                session_id=self.session_id,
-                stream=False,  # Keep non-streaming for now
-            )
-            
-            # Log response structure for debugging
-            self.logger.info("=" * 60)
-            self.logger.info("Response Structure Analysis:")
-            self.logger.info("=" * 60)
-            
-            # Log all steps if available
-            if hasattr(response, 'steps') and response.steps:
-                self.logger.info(f"Number of steps: {len(response.steps)}")
-                for i, step in enumerate(response.steps):
-                    self.logger.debug(f"Step {i}: {step}")
-            
-            # Get final response content - extract only the answer part
-            final_content = ""
-            if hasattr(response, 'output_message') and hasattr(response.output_message, 'content'):
-                try:
-                    # Try to parse as JSON to extract just the answer
-                    content_json = json.loads(response.output_message.content)
-                    if 'answer' in content_json and content_json['answer']:
-                        final_content = content_json['answer']
-                    else:
-                        final_content = response.output_message.content
-                except json.JSONDecodeError:
-                    # If not JSON, use the content as-is
-                    final_content = response.output_message.content
-            else:
-                final_content = str(response)
-            
-            self.logger.info(f"Captured {len(thinking_steps)} thinking steps")
-            self.logger.info(f"Final content length: {len(final_content)} characters")
-            return final_content, thinking_steps
-            
-        except Exception as e:
-            self.logger.error(f"Error in agent turn: {str(e)}")
-            import traceback
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
-            return f"Error: {str(e)}", []

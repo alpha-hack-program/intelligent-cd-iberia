@@ -20,7 +20,7 @@ from typing import Tuple
 from llama_stack_client import LlamaStackClient
 from utils import get_logger
 from tabs import ChatTab, MCPTestTab, RAGTestTab, SystemStatusTab, FormTab
-from gradio_app import create_demo
+from gradio_app import create_demo, THEME, CSS
 
 
 # ============================================================================
@@ -111,7 +111,10 @@ def initialize_client() -> Tuple[LlamaStackClient, str, str, str]:
     )
 
     models = llama_stack_client.models.list()
-    first_model = next(m.identifier for m in models if m.model_type == "llm")
+    first_model = next(
+        m.id for m in models
+        if (m.custom_metadata or {}).get("model_type") == "llm"
+    )
     model = os.getenv("DEFAULT_LLM_MODEL", first_model)
 
     # Log configuration summary
@@ -169,8 +172,11 @@ def main():
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        debug=True,
-        show_error=True
+        debug=False,
+        show_error=True,
+        ssr_mode=False,
+        theme=THEME,
+        css=CSS
     )
 
 if __name__ == "__main__":

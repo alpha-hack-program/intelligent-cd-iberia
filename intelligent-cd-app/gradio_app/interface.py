@@ -15,14 +15,9 @@ if TYPE_CHECKING:
     from tabs.form_tab import FormTab
 
 
-def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: 'RAGTestTab', system_status_tab: 'SystemStatusTab', form_tab: 'FormTab'):
-    """Create the beautiful Gradio interface with header and chat"""
-    
-    with gr.Blocks(
-        title="Intelligent CD Chatbot",
-        # https://www.gradio.app/guides/theming-guide
-        theme=gr.themes.Soft(),  # Fixed light theme - no dark mode switching
-        css="""
+THEME = gr.themes.Soft()
+
+CSS = """
         /* Full screen responsive layout */
         .gradio-container {
             max-width: 100vw !important;
@@ -220,6 +215,13 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             }
         }
         """
+
+
+def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: 'RAGTestTab', system_status_tab: 'SystemStatusTab', form_tab: 'FormTab'):
+    """Create the beautiful Gradio interface with header and chat"""
+    
+    with gr.Blocks(
+        title="Intelligent CD Chatbot",
     ) as demo:
         
         # Beautiful Header with Logo
@@ -391,7 +393,6 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                     show_label=False,
                                     avatar_images=["assets/chatbot.png", "assets/chatbot.png"],
                                     allow_file_downloads=True,
-                                    type="messages",
                                     layout="panel"
                                 )
                             
@@ -510,7 +511,7 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                     lines=20,
                     max_lines=50,
                     interactive=True,
-                    show_copy_button=True,
+                    buttons=["copy"],
                     show_label=True
                 )
         

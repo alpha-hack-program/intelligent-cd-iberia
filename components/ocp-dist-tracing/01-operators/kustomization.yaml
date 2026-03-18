@@ -4,5 +4,5 @@ kind: Kustomization
 
 resources:
   - 01-opentelemetry-operator
-  - 02-tempo-operator
-  - 03-coo-operator
+  # - 02-tempo-operator
+  # - 03-coo-operator

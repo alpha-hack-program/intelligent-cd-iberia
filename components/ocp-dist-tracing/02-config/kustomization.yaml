@@ -4,5 +4,5 @@ kind: Kustomization
 
 resources:
   - 01-opentelemetry
-  - 02-tempo
-  - 03-coo
+  # - 02-tempo
+  # - 03-coo
