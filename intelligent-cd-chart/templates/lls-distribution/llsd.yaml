@@ -100,31 +100,3 @@ spec:
               key: TAVILY_SEARCH_API_KEY
               name: {{ .Values.llamaStack.name }}-secret
         {{- end }}
-
-        {{- if .Values.mcpServers }}
-        {{- if .Values.mcpServers.ocpMcpServer }}
-        - name: MCP_OCP_URL
-          value: "http://{{ .Values.mcpServers.ocpMcpServer.name }}:{{ .Values.mcpServers.ocpMcpServer.mcpServer.port }}"
-        {{- end }}
-        {{- if .Values.mcpServers.argocdMcpServer }}
-        - name: MCP_ARGOCD_URL
-          value: "http://{{ .Values.mcpServers.argocdMcpServer.name }}:{{ .Values.mcpServers.argocdMcpServer.mcpServer.port }}"
-        {{- end }}
-        {{- if .Values.mcpServers.servicenowMcp }}
-        - name: MCP_SERVICENOW_URL
-          value: "http://{{ .Values.mcpServers.servicenowMcp.name }}:{{ .Values.mcpServers.servicenowMcp.mcpServer.port }}"
-        {{- end }}
-        {{- end }}
-
-        #########################
-        # OpenTelemetry
-        #########################
-
-        {{- if .Values.llamaStack.opentelemetry.enabled }}
-        - name: OTEL_SERVICE_NAME
-          value: {{ .Values.llamaStack.opentelemetry.otelServiceName | quote }}
-        - name: TELEMETRY_SINKS
-          value: {{ .Values.llamaStack.opentelemetry.telemetrySinks | quote }}
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: {{ .Values.llamaStack.opentelemetry.otelExporterOtlpEndpoint | quote }}
-        {{- end }}

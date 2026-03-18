@@ -9,7 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "10"
 spec:
-  replicas: {{ .Values.gradioUI.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
       app: {{ .Values.gradioUI.name }}
@@ -24,8 +24,8 @@ spec:
       serviceAccountName: {{ .Values.gradioUI.serviceAccount.name | default "default" }}
       containers:
         - name: {{ .Values.gradioUI.name }}
-          image: "{{ .Values.gradioUI.image.repository }}:{{ .Values.gradioUI.image.tag | default "latest" }}"
-          imagePullPolicy: {{ .Values.gradioUI.image.pullPolicy | default "" }}
+          image: {{ .Values.gradioUI.image | quote }}
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false

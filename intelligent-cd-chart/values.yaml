@@ -29,11 +29,6 @@ llamaStack:
     url: ""
     apiToken: ""
     maxTokens: ""
-  opentelemetry:
-    enabled: false
-    otelServiceName: "llamastack"
-    telemetrySinks: "console,otel_trace" # 'console, sqlite, otel_trace, otel_metric'
-    otelExporterOtlpEndpoint: "http://otel-collector.otel.svc.cluster.local:4318"
   websearch:
     tavilyApiKey: ""
 
@@ -61,15 +56,7 @@ RAG:
 
 gradioUI:
   name: gradio
-  replicaCount: 1
-
-  image:
-    repository: "quay.io/alopezme/intelligent-cd-gradio"
-    tag: "latest" # latest
-    pullPolicy: Always
-
-  exposure:
-    type: "route" # Type of exposure: none, ingress, or route
+  image: "quay.io/alopezme/intelligent-cd-gradio:latest"
 
   # Enable this to Apply resources from Gradio to the Cluster
   serviceAccount:
@@ -86,93 +73,27 @@ gradioUI:
       pat: "<Token>"
       toolsets: "pull_requests, repos, issues"
       readonly: "true"
-    form_tab:
-      # Global form configuration
-      max_infer_iters: 50
-      
-      # Step 1: Generate Resources
-      generate_resources:
-        sampling_params:
-          temperature: 0.1
-          max_tokens: 300000
-          max_new_tokens: 300000
-          strategy:
-            type: "greedy"
-        tools:
-          - "mcp::openshift"
-          - name: "builtin::rag"
-            args:
-              vector_db_names:
-                - "gitops-documentation"
-              top_k: 5
-      
-      # Step 2: Generate Helm
-      generate_helm:
-        sampling_params:
-          temperature: 0.1
-          max_tokens: 300000
-          max_new_tokens: 300000
-          strategy:
-            type: "greedy"
-        tools: []
-          # - "mcp::openshift"
-          # - name: "builtin::rag"
-          #   args:
-          #     vector_db_names:
-          #       - "gitops-documentation"
-          #     top_k: 5
-      
-      # Step 3: Push GitHub
-      push_github:
-        sampling_params:
-          temperature: 0.1
-          max_tokens: 300000
-          max_new_tokens: 300000
-          strategy:
-            type: "greedy"
-        tools:
-          - "mcp::github"
-          - name: "builtin::rag"
-            args:
-              vector_db_names:
-                - "gitops-documentation"
-              top_k: 1
-      
-      # Step 4: Generate ArgoCD
-      generate_argocd:
-        sampling_params:
-          temperature: 0.1
-          max_tokens: 300000
-          max_new_tokens: 300000
-          strategy:
-            type: "greedy"
-        tools:
-          # - "mcp::argocd"
-          - "mcp::openshift"
-          - name: "builtin::rag"
-            args:
-              vector_db_names:
-                - "gitops-documentation"
-              top_k: 1
 
+    # Shared LLM settings (apply to all tabs/steps)
+    temperature: 0.1
+    max_infer_iters: 30
+
+    # Tools use JSON format (same format the /v1/responses API expects).
+    # Available tool types:
+    #   {"type": "mcp", "server_label": "<name>", "server_url": "<url>"}
+    #   {"type": "file_search", "vector_db_names": ["<name>"]}
     chat_tab:
-      sampling_params:
-        temperature: 0.1
-        max_tokens: 300000
-        max_new_tokens: 300000
-        strategy:
-          type: "greedy"
-      tools:
-        # - "mcp::servicenow"
-        # - "mcp::argocd"
-        - "mcp::openshift"
-        - "mcp::github"
-        - name: "builtin::rag"
-          args:
-            vector_db_names:
-              - "app-documentation"
-            top_k: 5
-      max_infer_iters: 30
+      tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd:3000/sse"},{"type":"mcp","server_label":"github","server_url":"https://api.githubcopilot.com/mcp/"},{"type":"file_search","vector_db_names":["app-documentation"]}]'
+
+    form_tab:
+      generate_resources:
+        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
+      generate_helm:
+        tools: '[]'
+      push_github:
+        tools: '[{"type":"mcp","server_label":"github","server_url":"https://api.githubcopilot.com/mcp/"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
+      generate_argocd:
+        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
 
   env:
     LOG_LEVEL: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -187,44 +108,36 @@ gradioUI:
       cpu: "1500m"
       memory: "2Gi"
 
+# OCP MCP Server (vendored upstream chart as subchart)
+kubernetes-mcp-server:
+  fullnameOverride: ocp-mcp-server
+  openshift: true
+  ingress:
+    enabled: false
+  serviceAccount:
+    create: true
+  rbac:
+    create: true
+    extraClusterRoleBindings:
+      - name: view
+        roleRef:
+          name: view
+          external: true
+  config:
+    port: "8080"
+    disable_destructive: true
+    log_level: 5
+
+# Other MCP servers (custom templates)
 mcpServers:
-  ocpMcpServer:
-    name: ocp-mcp-server
-    replicaCount: 1
-    image:
-      repository: "quay.io/alopezme/kubernetes-mcp-server"
-      tag: "latest"
-
+  mcpForArgocd:
+    name: mcp-for-argocd
+    image: "ghcr.io/argoproj-labs/mcp-for-argocd:v0.5.0"
     mcpServer:
-      port: 8080
-      args:
-        - "--sse-port"
-        - "8080"
-        - "--disable-destructive"
-        - "--log-level"
-        - "5"
-
-    serviceAccount:
-      create: true
-      # Service account name (required if create=true, optional if create=false for existing SA)
-      name: "ocp-mcp-server"
-
-    rbac:
-      clusterRole: "view" # cluster-admin / view / edit
-
-  argocdMcpServer:
-    name: argocd-mcp-server
-    replicaCount: 1
-    image:
-      repository: "quay.io/alopezme/argocd-mcp"
-      tag: "latest"
-    mcpServer:
-      # Port for the MCP server to listen on
       port: 3000
-      # Add command to debug environment variables and start the server
       args:
-        - "exec"
-        - "argocd-mcp@latest"
+        - "node"
+        - "dist/index.js"
         - "sse"
     serviceAccount:
       create: false
@@ -233,10 +146,7 @@ mcpServers:
       
   servicenowMcp:
     name: servicenow-mcp
-    replicaCount: 1
-    image:
-      repository: "quay.io/alopezme/servicenow-mcp"
-      tag: "latest"
+    image: "quay.io/alopezme/servicenow-mcp:latest"
     mcpServer:
       port: 8080
     env:

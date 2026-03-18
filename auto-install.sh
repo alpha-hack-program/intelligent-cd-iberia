@@ -126,15 +126,15 @@ fi
 # Step 5: Create the Distributed Tracing Deployment
 #####################################
 
-echo -e "\n📡 Step 5: Configuring Distributed Tracing Stack..."
-oc apply -k components/ocp-dist-tracing/01-operators/
+# echo -e "\n📡 Step 5: Configuring Distributed Tracing Stack..."
+# oc apply -k components/ocp-dist-tracing/01-operators/
 
-# 1. Wait for OpenTelemetry Operator
-echo -n "⏳ Waiting for OpenTelemetry Operator to be ready..."
-while [[ $(oc get csv -n openshift-opentelemetry-operator -l operators.coreos.com/opentelemetry-product.openshift-opentelemetry-operator -o 'jsonpath={..status.phase}' 2>/dev/null) != "Succeeded" ]]; do
-    echo -n "⏳" && sleep 3
-done
-echo -e " [OK]"
+# # 1. Wait for OpenTelemetry Operator
+# echo -n "⏳ Waiting for OpenTelemetry Operator to be ready..."
+# while [[ $(oc get csv -n openshift-opentelemetry-operator -l operators.coreos.com/opentelemetry-product.openshift-opentelemetry-operator -o 'jsonpath={..status.phase}' 2>/dev/null) != "Succeeded" ]]; do
+#     echo -n "⏳" && sleep 3
+# done
+# echo -e " [OK]"
 
 # # 2. Wait for Cluster Observability Operator
 # echo -n "⏳ Waiting for Cluster Observability Operator to be ready..."
@@ -150,15 +150,15 @@ echo -e " [OK]"
 # done
 # echo -e " [OK]"
 
-echo "✅ Operators deployed successfully!"
+# echo "✅ Operators deployed successfully!"
 
-echo "Configuring operators..."
-
-
-oc apply -k components/ocp-dist-tracing/02-config/
+# echo "Configuring operators..."
 
 
-echo "✅ Distributed Tracing Stack configured successfully!"
+# oc apply -k components/ocp-dist-tracing/02-config/
+
+
+# echo "✅ Distributed Tracing Stack configured successfully!"
 
 #####################################
 # Step 6: Apply the Helm Chart

@@ -36,30 +36,13 @@ def get_extra_headers_config() -> dict:
     argocd_token = os.getenv("ARGOCD_API_TOKEN")
     
     if argocd_url and argocd_token:
-        mcp_headers["http://argocd-mcp-server:3000/sse"] = {
+        mcp_headers["http://mcp-for-argocd:3000/sse"] = {
             "x-argocd-base-url": argocd_url,
             "x-argocd-api-token": argocd_token
         }
     
-    # Configure GitHub MCP server
-    github_auth_token = os.getenv("GITHUB_PAT")
-    
-    if github_auth_token:
-        github_headers = {
-            "Authorization": f"Bearer {github_auth_token}"
-        }
-        
-        # Add optional toolsets header
-        github_toolsets = os.getenv("GITHUB_MCP_SERVER_TOOLSETS")
-        if github_toolsets:
-            github_headers["X-MCP-Toolsets"] = github_toolsets
-        
-        # Add optional readonly header
-        github_readonly = os.getenv("GITHUB_MCP_SERVER_READONLY")
-        if github_readonly:
-            github_headers["X-MCP-Readonly"] = github_readonly
-        
-        mcp_headers["https://api.githubcopilot.com/mcp/"] = github_headers
+    # GitHub MCP auth is handled at the tool level via _process_tools()
+    # (authorization + headers fields on the MCP tool definition)
     
     # Return empty dict if no MCP servers are configured
     if not mcp_headers:

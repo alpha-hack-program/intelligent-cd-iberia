@@ -14,7 +14,7 @@ spec:
   selector:
     matchLabels:
       app: {{ $config.name }}
-  replicas: {{ $config.replicaCount }}
+  replicas: 1
   template:
     metadata:
       labels:
@@ -25,8 +25,8 @@ spec:
       {{- end }}
       containers:
         - name: mcp-server
-          image: "{{ $config.image.repository }}:{{ $config.image.tag | default "latest" }}"
-          imagePullPolicy: {{ $config.image.pullPolicy | default "Always" }}
+          image: {{ $config.image | quote }}
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: {{ $config.mcpServer.port }}

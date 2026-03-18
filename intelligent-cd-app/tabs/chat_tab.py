@@ -6,7 +6,6 @@ This module handles the main chat interface with LLM using the /v1/responses API
 
 import os
 import json
-import ast
 from typing import List, Dict
 from llama_stack_client import LlamaStackClient
 from utils import get_logger
@@ -19,25 +18,21 @@ class ChatTab:
         self.client = client
         self.model = model
         self.logger = get_logger("chat")
-        self.max_infer_iters = int(os.getenv("CHAT_MAX_INFER_ITERS", "15"))
+        self.temperature = float(os.getenv("TEMPERATURE", "0.1"))
+        self.max_infer_iters = int(os.getenv("MAX_INFER_ITERS", "30"))
+        self._previous_response_id = None
         
-        self.sampling_params, self.tools, self.model_prompt = self._load_config()
+        self.tools, self.model_prompt = self._load_config()
     
-    def _load_config(self) -> tuple[dict, list, str]:
-        """Load all configuration from environment variables"""
-        sampling_params_str = os.getenv("CHAT_SAMPLING_PARAMS", "{}")
-        sampling_params = json.loads(sampling_params_str)
-        
+    def _load_config(self) -> tuple[list, str]:
+        """Load tools and prompt from environment variables"""
         tools_str = os.getenv("CHAT_TOOLS", "[]")
         
         try:
             tools = json.loads(tools_str)
-        except json.JSONDecodeError:
-            try:
-                tools = ast.literal_eval(tools_str)
-            except (ValueError, SyntaxError) as e:
-                self.logger.error(f"Failed to parse CHAT_TOOLS: {e}")
-                tools = []
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Failed to parse CHAT_TOOLS: {e}")
+            tools = []
         
         tools = self._process_tools(tools)
         
@@ -52,39 +47,43 @@ class ChatTab:
         else:
             model_prompt = os.getenv("CHAT_PROMPT", "You are a helpful assistant.")
         
-        self.logger.debug(f"CHAT_SAMPLING_PARAMS: {sampling_params}")
         self.logger.debug(f"CHAT_TOOLS: {tools}")
         self.logger.debug(f"CHAT_PROMPT: {str(model_prompt)[:200]}...")
         
-        return sampling_params, tools, model_prompt
+        return tools, model_prompt
     
     def _process_tools(self, tools: list) -> list:
-        """Process tools to convert vector_db_names to vector_store_ids for file_search tools.
-        
-        Supports the /v1/responses API tool formats:
-        - MCP tools: {"type": "mcp", "server_label": "...", "server_url": "..."}
-        - File search: {"type": "file_search", "vector_store_ids": [...]}
-        """
+        """Process tools: resolve vector_db_names and inject auth headers for remote MCP servers."""
         processed_tools = []
         
         for tool in tools:
-            if isinstance(tool, dict):
-                tool_copy = tool.copy()
-                self.logger.info(f"Processing tool: {tool_copy}")
-                
-                if tool_copy.get('type') == 'file_search' and 'vector_db_names' in tool_copy:
-                    names = tool_copy['vector_db_names']
-                    if isinstance(names, list):
-                        ids = [self._get_vector_store_id_by_name(name) for name in names]
-                        tool_copy['vector_store_ids'] = ids
-                        del tool_copy['vector_db_names']
-                        self.logger.info(f"Converted vector_db_names {names} to vector_store_ids {ids}")
-                
-                processed_tools.append(tool_copy)
-            elif isinstance(tool, str):
-                self.logger.warning(f"Skipping legacy string tool format '{tool}'. Use dict format for /v1/responses API.")
-            else:
-                processed_tools.append(tool)
+            tool_copy = tool.copy()
+            self.logger.info(f"Processing tool: {tool_copy}")
+            
+            if tool_copy.get('type') == 'file_search' and 'vector_db_names' in tool_copy:
+                names = tool_copy['vector_db_names']
+                if isinstance(names, list):
+                    ids = [self._get_vector_store_id_by_name(name) for name in names]
+                    tool_copy['vector_store_ids'] = ids
+                    del tool_copy['vector_db_names']
+                    self.logger.info(f"Converted vector_db_names {names} to vector_store_ids {ids}")
+            
+            if tool_copy.get('type') == 'mcp' and tool_copy.get('server_label') == 'github':
+                github_pat = os.getenv('GITHUB_PAT', '')
+                if github_pat:
+                    tool_copy['authorization'] = f"Bearer {github_pat}"
+                    extra_headers = {}
+                    toolsets = os.getenv('GITHUB_MCP_SERVER_TOOLSETS', '')
+                    if toolsets:
+                        extra_headers['X-MCP-Toolsets'] = toolsets
+                    readonly = os.getenv('GITHUB_MCP_SERVER_READONLY', '')
+                    if readonly:
+                        extra_headers['X-MCP-Readonly'] = readonly
+                    if extra_headers:
+                        tool_copy['headers'] = extra_headers
+                    self.logger.info("Injected GitHub MCP authorization and headers")
+            
+            processed_tools.append(tool_copy)
         
         return processed_tools
 
@@ -111,12 +110,15 @@ class ChatTab:
             f"**Model:** {self.model}",
             f"**Tools:** {self.tools}",
             f"**Max iterations:** {self.max_infer_iters}",
-            f"**Temperature:** {self.sampling_params.get('temperature', 'default')}",
-            f"**Top P:** {self.sampling_params.get('top_p', 'default')}",
-            f"**Top K:** {self.sampling_params.get('top_k', 'default')}"
+            f"**Temperature:** {self.temperature}",
         ]
         
         return "  \n".join(config_lines)
+
+    def reset_conversation(self):
+        """Reset the conversation state, clearing the response chain."""
+        self._previous_response_id = None
+        self.logger.info("Conversation state reset (previous_response_id cleared)")
 
     def _call_responses_api(self, user_message: str) -> object:
         """Call the /v1/responses API and return the raw response object"""
@@ -127,19 +129,40 @@ class ChatTab:
         self.logger.info(f"Tools: {self.tools}")
         self.logger.info(f"Max infer iters: {self.max_infer_iters}")
         self.logger.info(f"Instructions length: {len(self.model_prompt)}")
+        self.logger.info(f"Previous response ID: {self._previous_response_id}")
         self.logger.info(f"User message: {user_message[:200]}...")
         
-        response = self.client.responses.create(
+        kwargs = dict(
             model=self.model,
             input=user_message,
             instructions=self.model_prompt,
             tools=self.tools if self.tools else None,
+            temperature=self.temperature,
             include=["file_search_call.results"],
-            max_infer_iters=self.max_infer_iters
+            max_infer_iters=self.max_infer_iters,
         )
+        if self._previous_response_id:
+            kwargs["previous_response_id"] = self._previous_response_id
+
+        try:
+            response = self.client.responses.create(**kwargs)
+        except Exception as e:
+            if self._previous_response_id:
+                self.logger.warning(
+                    f"Request with previous_response_id failed ({e}), retrying without it"
+                )
+                self._previous_response_id = None
+                kwargs.pop("previous_response_id", None)
+                response = self.client.responses.create(**kwargs)
+            else:
+                raise
         
+        response_id = getattr(response, 'id', None)
         self.logger.info(f"Response received - status: {getattr(response, 'status', 'unknown')}")
-        self.logger.info(f"Response ID: {getattr(response, 'id', 'unknown')}")
+        self.logger.info(f"Response ID: {response_id}")
+        
+        if response_id:
+            self._previous_response_id = response_id
         
         if hasattr(response, 'output') and response.output:
             for i, item in enumerate(response.output):

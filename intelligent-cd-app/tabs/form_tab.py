@@ -6,7 +6,6 @@ This module handles the form-based resource generation functionality.
 
 import os
 import json
-import ast
 import subprocess
 from typing import List
 import gradio as gr
@@ -21,10 +20,10 @@ class FormTab:
         self.client = client
         self.logger = get_logger("form")
         self.model = model
-        self.max_infer_iters = int(os.getenv("FORM_MAX_INFER_ITERS", "15"))
+        self.temperature = float(os.getenv("TEMPERATURE", "0.1"))
+        self.max_infer_iters = int(os.getenv("MAX_INFER_ITERS", "30"))
         self.github_gitops_repo = os.getenv("GITHUB_GITOPS_REPO", "")
 
-        # Load step-specific configurations from environment variables
         self.logger.info("Loading step-specific configurations...")
         self.config_generate_resources = self._load_step_config("GENERATE_RESOURCES")
         self.config_generate_helm = self._load_step_config("GENERATE_HELM")
@@ -33,42 +32,26 @@ class FormTab:
         self.logger.info("✅ All configurations loaded successfully")
     
     def _load_step_config(self, step_key: str) -> dict:
-        """Load step-specific configuration from environment variables
+        """Load step-specific tools and prompt from environment variables.
         
         Args:
             step_key: The step identifier (e.g., "GENERATE_RESOURCES", "GENERATE_HELM", etc.)
             
         Returns:
-            Dictionary with keys: sampling_params, tools, prompt
+            Dictionary with keys: tools, prompt
         """
         env_prefix = f"FORM_{step_key}_"
         
-        # Load sampling parameters
-        sampling_params_str = os.getenv(f"{env_prefix}SAMPLING_PARAMS", "{}")
-        try:
-            sampling_params = json.loads(sampling_params_str)
-        except json.JSONDecodeError as e:
-            self.logger.warning(f"Failed to parse {env_prefix}SAMPLING_PARAMS: {e}, using defaults")
-            sampling_params = {}
-        
-        # Load tools
         tools_str = os.getenv(f"{env_prefix}TOOLS", "[]")
         
-        # Try to parse as JSON first, fall back to Python literal
         try:
             tools = json.loads(tools_str)
-        except json.JSONDecodeError:
-            try:
-                # Handle Python syntax with single quotes
-                tools = ast.literal_eval(tools_str)
-            except (ValueError, SyntaxError) as e:
-                self.logger.error(f"Failed to parse {env_prefix}TOOLS: {e}")
-                tools = []
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Failed to parse {env_prefix}TOOLS: {e}")
+            tools = []
         
-        # Process tools to convert vector_db_names to vector_store_ids
         tools = self._process_tools(tools)
         
-        # Load model prompt
         prompt_file = os.getenv(f"{env_prefix}PROMPT_FILE", "")
         if prompt_file:
             try:
@@ -80,13 +63,10 @@ class FormTab:
         else:
             model_prompt = os.getenv(f"{env_prefix}PROMPT", "You are a helpful assistant.")
         
-        # Debug logging
-        self.logger.debug(f"{env_prefix}SAMPLING_PARAMS: {sampling_params}")
         self.logger.debug(f"{env_prefix}TOOLS: {tools}")
         self.logger.debug(f"{env_prefix}PROMPT: {str(model_prompt)[:200]}...")
         
         return {
-            "sampling_params": sampling_params,
             "tools": tools,
             "prompt": model_prompt
         }
@@ -101,28 +81,33 @@ class FormTab:
         processed_tools = []
         
         for tool in tools:
-            # Handle dict tools
-            if isinstance(tool, dict):
-                tool_copy = tool.copy()
-                self.logger.info(f"Processing tool: {tool_copy}")
-                
-                # Handle file_search tools with vector_db_names (convert to vector_store_ids)
-                if tool_copy.get('type') == 'file_search' and 'vector_db_names' in tool_copy:
-                    names = tool_copy['vector_db_names']
-                    if isinstance(names, list):
-                        # Convert names to IDs
-                        ids = [self._get_vector_store_id_by_name(name) for name in names]
-                        tool_copy['vector_store_ids'] = ids
-                        del tool_copy['vector_db_names']
-                        self.logger.info(f"Converted vector_db_names {names} to vector_store_ids {ids}")
-                
-                processed_tools.append(tool_copy)
-            elif isinstance(tool, str):
-                # Legacy string format - log warning and skip
-                self.logger.warning(f"Skipping legacy string tool format '{tool}'. Use dict format for /v1/responses API.")
-            else:
-                # Unknown type, keep as-is
-                processed_tools.append(tool)
+            tool_copy = tool.copy()
+            self.logger.info(f"Processing tool: {tool_copy}")
+            
+            if tool_copy.get('type') == 'file_search' and 'vector_db_names' in tool_copy:
+                names = tool_copy['vector_db_names']
+                if isinstance(names, list):
+                    ids = [self._get_vector_store_id_by_name(name) for name in names]
+                    tool_copy['vector_store_ids'] = ids
+                    del tool_copy['vector_db_names']
+                    self.logger.info(f"Converted vector_db_names {names} to vector_store_ids {ids}")
+            
+            if tool_copy.get('type') == 'mcp' and tool_copy.get('server_label') == 'github':
+                github_pat = os.getenv('GITHUB_PAT', '')
+                if github_pat:
+                    tool_copy['authorization'] = f"Bearer {github_pat}"
+                    extra_headers = {}
+                    toolsets = os.getenv('GITHUB_MCP_SERVER_TOOLSETS', '')
+                    if toolsets:
+                        extra_headers['X-MCP-Toolsets'] = toolsets
+                    readonly = os.getenv('GITHUB_MCP_SERVER_READONLY', '')
+                    if readonly:
+                        extra_headers['X-MCP-Readonly'] = readonly
+                    if extra_headers:
+                        tool_copy['headers'] = extra_headers
+                    self.logger.info("Injected GitHub MCP authorization and headers")
+            
+            processed_tools.append(tool_copy)
         
         return processed_tools
 
@@ -149,19 +134,14 @@ class FormTab:
         """Get formatted configuration for display in UI"""
         config_lines = [
             f"**Model:** {self.model}",
+            f"**Temperature:** {self.temperature}",
             f"**Max iterations:** {self.max_infer_iters}",
             f"\n**Step 1 - Generate Resources:**",
             f"  - Tools: {self.config_generate_resources['tools']}",
-            f"  - Temperature: {self.config_generate_resources['sampling_params'].get('temperature', 'default')}",
             f"\n**Step 2 - Generate Helm:**",
             f"  - Tools: {self.config_generate_helm['tools']}",
-            f"  - Temperature: {self.config_generate_helm['sampling_params'].get('temperature', 'default')}",
-            # f"\n**Step 3 - Push GitHub:**",
-            # f"  - Tools: {self.config_push_github['tools']}",
-            # f"  - Temperature: {self.config_push_github['sampling_params'].get('temperature', 'default')}",
             f"\n**Step 3 - Generate ArgoCD:**",
             f"  - Tools: {self.config_generate_argocd['tools']}",
-            f"  - Temperature: {self.config_generate_argocd['sampling_params'].get('temperature', 'default')}",
         ]
         
         return "  \n".join(config_lines)
@@ -171,7 +151,7 @@ class FormTab:
         
         Args:
             user_message: The user's message/prompt
-            config: Configuration dict with tools, prompt, and sampling_params
+            config: Configuration dict with tools and prompt
             
         Returns:
             The response text content
@@ -189,13 +169,12 @@ class FormTab:
         self.logger.info(f"User message: {user_message[:200]}...")
         
         try:
-            
-            # Call the responses API directly (non-streaming)
             response = self.client.responses.create(
                 model=self.model,
                 input=user_message,
                 instructions=instructions,
                 tools=tools if tools else None,
+                temperature=self.temperature,
                 include=["file_search_call.results"],
                 max_infer_iters=self.max_infer_iters
             )

@@ -30,3 +30,8 @@ maintainers:
 
 icon: https://raw.githubusercontent.com/alvarolop/intelligent-cd/main/docs/images/logo.png
 
+dependencies:
+  - name: kubernetes-mcp-server
+    version: "0.1.0"
+    repository: "file://charts/kubernetes-mcp-server"
+

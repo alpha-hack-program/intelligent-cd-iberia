@@ -411,6 +411,7 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                     with gr.Column(scale=2):
                                         send_btn = gr.Button("Send", variant="primary", size="md", scale=1)
                                         save_btn = gr.Button("Save", variant="primary", size="md", scale=1)
+                                        clear_btn = gr.Button("Clear", variant="secondary", size="md", scale=1)
                                 
                                 # Configuration display below text input
                                 config_display = gr.Markdown(
@@ -640,6 +641,17 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             fn=lambda chat_history: f"💾 SAVED CHAT RESPONSE:\n\n{chat_history[-1]['content'] if chat_history and len(chat_history) > 0 else 'No chat history available'}",
             inputs=[chatbot],
             outputs=[content_area]
+        )
+        
+        # Clear button - reset chat history and conversation state
+        def clear_chat():
+            from gradio import ChatMessage
+            chat_tab.reset_conversation()
+            return [ChatMessage(role="assistant", content="Hello, how can I help you?")], ""
+        
+        clear_btn.click(
+            fn=clear_chat,
+            outputs=[chatbot, msg]
         )
         
         # Add JavaScript to handle Enter key behavior properly

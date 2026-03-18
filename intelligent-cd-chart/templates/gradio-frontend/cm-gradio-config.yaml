@@ -7,36 +7,25 @@ metadata:
   labels:
     app: {{ .Values.gradioUI.name }}
 data:
-  # Chat tab configuration
+  # Shared LLM settings
+  TEMPERATURE: {{ .Values.gradioUI.config.temperature | quote }}
+  MAX_INFER_ITERS: {{ .Values.gradioUI.config.max_infer_iters | quote }}
+
+  # Chat tab
   CHAT_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/chat_prompt.md") . | nindent 4 }}
-  CHAT_SAMPLING_PARAMS: {{ .Values.gradioUI.config.chat_tab.sampling_params | toJson | quote }}
-  CHAT_TOOLS: {{ .Values.gradioUI.config.chat_tab.tools | toJson | quote }}
-  CHAT_MAX_INFER_ITERS: {{ .Values.gradioUI.config.chat_tab.max_infer_iters | quote }}
-  
-  # Step 1: Generate Resources
+  CHAT_TOOLS: {{ .Values.gradioUI.config.chat_tab.tools | quote }}
+
+  # Form tab - per-step tools and prompts
   FORM_GENERATE_RESOURCES_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/form_generate_resources_prompt.md") . | nindent 4 }}
-  FORM_GENERATE_RESOURCES_SAMPLING_PARAMS: {{ .Values.gradioUI.config.form_tab.generate_resources.sampling_params | toJson | quote }}
-  FORM_GENERATE_RESOURCES_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_resources.tools | toJson | quote }}
-  
-  # Step 2: Generate Helm
+  FORM_GENERATE_RESOURCES_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_resources.tools | quote }}
   FORM_GENERATE_HELM_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/form_generate_helm_prompt.md") . | nindent 4 }}
-  FORM_GENERATE_HELM_SAMPLING_PARAMS: {{ .Values.gradioUI.config.form_tab.generate_helm.sampling_params | toJson | quote }}
-  FORM_GENERATE_HELM_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_helm.tools | toJson | quote }}
-  
-  # Step 3: Push GitHub
+  FORM_GENERATE_HELM_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_helm.tools | quote }}
   FORM_PUSH_GITHUB_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/form_push_github_prompt.md") . | nindent 4 }}
-  FORM_PUSH_GITHUB_SAMPLING_PARAMS: {{ .Values.gradioUI.config.form_tab.push_github.sampling_params | toJson | quote }}
-  FORM_PUSH_GITHUB_TOOLS: {{ .Values.gradioUI.config.form_tab.push_github.tools | toJson | quote }}
-  
-  # Step 4: Generate ArgoCD
+  FORM_PUSH_GITHUB_TOOLS: {{ .Values.gradioUI.config.form_tab.push_github.tools | quote }}
   FORM_GENERATE_ARGOCD_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/form_generate_argocd_prompt.md") . | nindent 4 }}
-  FORM_GENERATE_ARGOCD_SAMPLING_PARAMS: {{ .Values.gradioUI.config.form_tab.generate_argocd.sampling_params | toJson | quote }}
-  FORM_GENERATE_ARGOCD_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_argocd.tools | toJson | quote }}
-  
-  # Global form configuration
-  FORM_MAX_INFER_ITERS: {{ .Values.gradioUI.config.form_tab.max_infer_iters | quote }}
+  FORM_GENERATE_ARGOCD_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_argocd.tools | quote }}
