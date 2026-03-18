@@ -45,15 +45,20 @@ class RAGTestTab:
         self.logger.info(f"Using vector store: {vector_store_name} (ID: {vector_store_id})")
 
         try:
-            # Query documents
-            result = self.client.tool_runtime.rag_tool.query(
-                vector_db_ids=[vector_store_id],
-                content=query,
+            result = self.client.vector_stores.search(
+                vector_store_id=vector_store_id,
+                query=query,
             )
             self.logger.debug(f"RAG Result:\n\n{result}")
 
-            # Try to format the result nicely for the user
-            if isinstance(result, (dict, list)):
+            if hasattr(result, 'data') and result.data:
+                formatted_result = json.dumps(
+                    [{"text": item.content[0].text if item.content else "", 
+                      "score": item.score}
+                     for item in result.data],
+                    indent=2
+                )
+            elif isinstance(result, (dict, list)):
                 formatted_result = json.dumps(result, indent=2)
             else:
                 formatted_result = str(result)
@@ -216,11 +221,10 @@ class RAGTestTab:
                 except Exception as e:
                     self.logger.warning(f"Error accessing file information via API: {str(e)}")
                     status_info.append(f"   ⚠️ Error accessing file information: {str(e)}")
-                    # Fallback: indicate system is responsive
                     try:
-                        test_result = self.client.tool_runtime.rag_tool.query(
-                            vector_db_ids=[vector_store_id],
-                            content="test",
+                        test_result = self.client.vector_stores.search(
+                            vector_store_id=vector_store_id,
+                            query="test",
                         )
                         if test_result:
                             status_info.append("   • System is responsive to queries")
