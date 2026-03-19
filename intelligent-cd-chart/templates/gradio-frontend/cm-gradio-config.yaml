@@ -17,9 +17,11 @@ data:
   CHAT_TOOLS: {{ .Values.gradioUI.config.chat_tab.tools | quote }}
 
   # Form tab - per-step tools and prompts
-  FORM_GENERATE_RESOURCES_PROMPT: |-
-    {{- tpl ($.Files.Get "conf/app/form_generate_resources_prompt.md") . | nindent 4 }}
+  FORM_GENERATE_RESOURCES_PROMPT: ""
   FORM_GENERATE_RESOURCES_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_resources.tools | quote }}
+  FORM_APPLY_BEST_PRACTICES_PROMPT: |-
+    {{- tpl ($.Files.Get "conf/app/form_apply_best_practices_prompt.md") . | nindent 4 }}
+  FORM_APPLY_BEST_PRACTICES_TOOLS: {{ .Values.gradioUI.config.form_tab.apply_best_practices.tools | quote }}
   FORM_GENERATE_HELM_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/form_generate_helm_prompt.md") . | nindent 4 }}
   FORM_GENERATE_HELM_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_helm.tools | quote }}

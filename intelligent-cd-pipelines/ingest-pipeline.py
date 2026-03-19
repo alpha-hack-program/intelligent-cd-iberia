@@ -277,10 +277,12 @@ def pipeline(recreate_stores: bool = False):
         recreate_stores=recreate_stores
     )
     create_stores_task.after(folders_config_task)
+    create_stores_task.set_caching_options(enable_caching=False)
     
     # Step 3: Ingest files into vector stores
     ingest_documents_task = ingest_documents(folders_config=create_stores_task.output)
     ingest_documents_task.after(create_stores_task)
+    ingest_documents_task.set_caching_options(enable_caching=False)
     
     # Add secrets for all tasks
     all_tasks = [folders_config_task, create_stores_task, ingest_documents_task]

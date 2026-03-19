@@ -325,22 +325,13 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                 )
                         
                         with gr.Row():
-                            # Bottom Left - Generate Helm (AI Generation - Blue/Purple theme)
-                            with gr.Column(scale=3):
+                            # Generate Helm (AI Generation - Blue/Purple theme)
+                            with gr.Column(scale=1):
                                 generate_helm_btn = gr.Button(
                                     "📦 Generate Helm Chart", 
                                     variant="primary", 
                                     size="lg",
                                     elem_classes=["ai-generation-btn"]
-                                )
-                            
-                            # Bottom Right - Apply Helm (OpenShift Action - Green theme)
-                            with gr.Column(scale=1):
-                                apply_helm_btn = gr.Button(
-                                    "🚀 Apply Helm", 
-                                    variant="secondary", 
-                                    size="lg",
-                                    elem_classes=["openshift-action-btn"]
                                 )
 
                         # Full-width Push to GitHub button
@@ -351,6 +342,14 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
                                     variant="primary", 
                                     size="lg",
                                     elem_classes=["ai-generation-btn", "gitops-btn"]
+                                )
+                        with gr.Row():
+                            with gr.Column(scale=1):
+                                push_result_area = gr.Textbox(
+                                    label="Push to GitHub Result",
+                                    lines=6,
+                                    interactive=False,
+                                    visible=False,
                                 )
                         
                         # GitOps buttons row - parallel buttons similar to Generate Resources and Apply YAML
@@ -541,23 +540,22 @@ def create_demo(chat_tab: 'ChatTab', mcp_test_tab: 'MCPTestTab', rag_test_tab: '
             outputs=content_area
         )
         
-        # Apply Helm button functionality - show alert
-        apply_helm_btn.click(
-            fn=lambda: "🚀 Button 'Apply Helm' clicked",
-            outputs=content_area
-        )
-
         # Push code to GitHub button functionality
+        def _push_github_wrapper(namespace, helm_chart, content):
+            yield gr.update(visible=True, value="")
+            for update in form_tab.push_github(namespace, helm_chart, content):
+                yield gr.update(visible=True, value=update)
+
         push_github_btn.click(
-            fn=form_tab.push_github,
-            inputs=[namespace_input, content_area],
-            outputs=content_area
+            fn=_push_github_wrapper,
+            inputs=[namespace_input, helm_chart_input, content_area],
+            outputs=push_result_area
         )
         
-        # Generate ArgoCD App button functionality - show alert
+        # Generate ArgoCD App button functionality
         generate_argocd_btn.click(
             fn=form_tab.generate_argocd_app,
-            inputs=[namespace_input],
+            inputs=[namespace_input, helm_chart_input],
             outputs=content_area
         )
         
