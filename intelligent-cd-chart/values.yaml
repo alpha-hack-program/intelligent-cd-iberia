@@ -103,6 +103,10 @@ gradioUI:
         # Restore the MCP tools below to use LLM+MCP instead.
         # tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd:3000/sse"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
         tools: '[]'
+      validate_deployment:
+        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"}]'
+      validate_argocd:
+        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd:3000/sse"}]'
 
   env:
     LOG_LEVEL: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL

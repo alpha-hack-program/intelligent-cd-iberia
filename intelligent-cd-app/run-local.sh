@@ -92,6 +92,14 @@ export FORM_PUSH_GITHUB_PROMPT=""
 export FORM_GENERATE_ARGOCD_TOOLS='[]'
 export FORM_GENERATE_ARGOCD_PROMPT=""
 
+# Form tab - Validate Deployment (LLM + MCP OpenShift for intelligent health checks)
+export FORM_VALIDATE_DEPLOYMENT_TOOLS='[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"}]'
+export FORM_VALIDATE_DEPLOYMENT_PROMPT="You are a Kubernetes deployment validator. Use the MCP tools to check pod health, events, and logs. Diagnose any issues you find."
+
+# Form tab - Validate ArgoCD (LLM + MCP OpenShift + ArgoCD for full gitops health validation)
+export FORM_VALIDATE_ARGOCD_TOOLS='[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd.intelligent-cd.svc.cluster.local:3000/sse"}]'
+export FORM_VALIDATE_ARGOCD_PROMPT="You are a GitOps deployment validator. Use both the ArgoCD and OpenShift MCP tools to verify the deployment is healthy."
+
 # RAG test tab configuration
 export RAG_TEST_TAB_VECTOR_DB_NAME='app-documentation'
 

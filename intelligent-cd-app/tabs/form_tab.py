@@ -32,6 +32,8 @@ class FormTab:
         self.config_generate_helm = self._load_step_config("GENERATE_HELM")
         self.config_push_github = self._load_step_config("PUSH_GITHUB")
         self.config_generate_argocd = self._load_step_config("GENERATE_ARGOCD")
+        self.config_validate_deployment = self._load_step_config("VALIDATE_DEPLOYMENT")
+        self.config_validate_argocd = self._load_step_config("VALIDATE_ARGOCD")
         self.logger.info("✅ All configurations loaded successfully")
 
         self._resource_type_map = {
@@ -562,12 +564,23 @@ class FormTab:
 
         try:
             new_namespace = namespace+"-manually-created"
-            # Ensure namespace exists (delete and recreate if it does)
-            subprocess.run(['kubectl', 'create', 'namespace', new_namespace], capture_output=True)
-            
-            # The '-' argument tells 'kubectl apply' to read from standard input.
+            kube_cli = os.getenv("KUBE_CLI", "oc")
+
+            # Delete the namespace if it already exists, then wait for termination
+            subprocess.run(
+                [kube_cli, 'delete', 'namespace', new_namespace, '--ignore-not-found'],
+                capture_output=True, text=True,
+            )
+            # Wait until the namespace is fully gone (up to 60s)
+            subprocess.run(
+                [kube_cli, 'wait', '--for=delete', f'namespace/{new_namespace}', '--timeout=60s'],
+                capture_output=True, text=True,
+            )
+
+            subprocess.run([kube_cli, 'create', 'namespace', new_namespace], capture_output=True)
+
             process = subprocess.Popen(
-                ['kubectl', 'apply', '-n', new_namespace, '-f', '-'],
+                [kube_cli, 'apply', '-n', new_namespace, '-f', '-'],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

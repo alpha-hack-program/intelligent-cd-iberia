@@ -31,3 +31,7 @@ data:
   FORM_GENERATE_ARGOCD_PROMPT: |-
     {{- tpl ($.Files.Get "conf/app/form_generate_argocd_prompt.md") . | nindent 4 }}
   FORM_GENERATE_ARGOCD_TOOLS: {{ .Values.gradioUI.config.form_tab.generate_argocd.tools | quote }}
+  FORM_VALIDATE_DEPLOYMENT_PROMPT: "You are a Kubernetes deployment validator. Use the MCP tools to check pod health, events, and logs. Diagnose any issues you find."
+  FORM_VALIDATE_DEPLOYMENT_TOOLS: {{ .Values.gradioUI.config.form_tab.validate_deployment.tools | quote }}
+  FORM_VALIDATE_ARGOCD_PROMPT: "You are a GitOps deployment validator. Use both the ArgoCD and OpenShift MCP tools to verify the deployment is healthy."
+  FORM_VALIDATE_ARGOCD_TOOLS: {{ .Values.gradioUI.config.form_tab.validate_argocd.tools | quote }}
