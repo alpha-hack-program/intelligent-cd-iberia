@@ -20,7 +20,7 @@ from typing import Tuple
 from llama_stack_client import LlamaStackClient
 from utils import get_logger
 from tabs import ChatTab, MCPTestTab, RAGTestTab, SystemStatusTab, FormTab
-from gradio_app import create_demo
+from gradio_app import create_demo, THEME, CSS
 
 
 # ============================================================================
@@ -158,6 +158,8 @@ def main():
         debug=False,
         show_error=True,
         ssr_mode=False,
+        theme=THEME,
+        css=CSS,
     )
 
 if __name__ == "__main__":

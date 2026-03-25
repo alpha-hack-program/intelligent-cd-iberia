@@ -2,4 +2,5 @@ app-intelligent-cd-ignore.yaml
 docs/images/architecture-v*
 ingest-pipeline.yaml
 architecture-v*.drawio
-.env__pycache__/
+.env
+__pycache__/

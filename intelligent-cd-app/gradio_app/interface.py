@@ -502,7 +502,7 @@ def create_demo(
     #  Gradio layout                                                   #
     # ============================================================== #
 
-    with gr.Blocks(title="Intelligent CD Chatbot", theme=THEME, css=CSS) as demo:
+    with gr.Blocks(title="Intelligent CD Chatbot") as demo:
 
         # Header
         with gr.Row():
@@ -583,7 +583,6 @@ def create_demo(
                                 chatbot = gr.Chatbot(
                                     history, label="Chat",
                                     show_label=False,
-                                    type="messages",
                                     avatar_images=["assets/chatbot.png", "assets/chatbot.png"],
                                     allow_file_downloads=True, layout="panel",
                                 )
