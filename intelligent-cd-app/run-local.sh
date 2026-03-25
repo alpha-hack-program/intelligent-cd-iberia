@@ -62,22 +62,43 @@ export MAX_INFER_ITERS=30
 export CHAT_TOOLS='[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd.intelligent-cd.svc.cluster.local:3000/sse"},{"type":"file_search","vector_db_names":["app-documentation"]}]'
 export CHAT_PROMPT="$(cat ../intelligent-cd-chart/conf/app/chat_prompt.md)"
 
-# Form tab - Step 1: Generate Resources
-export FORM_GENERATE_RESOURCES_TOOLS='[{"type": "mcp", "server_label": "openshift", "server_url": "http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"}, {"type": "file_search", "vector_db_names": ["gitops-documentation"]}]'
-export FORM_GENERATE_RESOURCES_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_resources_prompt_responses.md)"
+# Form tab - Step 1: Generate Resources (fetch done via oc, no LLM tools needed)
+export FORM_GENERATE_RESOURCES_TOOLS='[]'
+export FORM_GENERATE_RESOURCES_PROMPT=""
+
+# Form tab - Step 1b: Apply Best Practices (LLM + RAG only, no MCP)
+export FORM_APPLY_BEST_PRACTICES_TOOLS='[{"type": "file_search", "vector_db_names": ["gitops-documentation"]}]'
+export FORM_APPLY_BEST_PRACTICES_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_apply_best_practices_prompt.md)"
 
 # Form tab - Step 2: Generate Helm
 export FORM_GENERATE_HELM_TOOLS='[{"type": "file_search", "vector_db_names": ["gitops-documentation"]}]'
 export FORM_GENERATE_HELM_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_helm_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
 
 # Form tab - Step 3: Push GitHub
+# Currently uses PyGithub directly (no LLM/MCP needed).
+# [MCP-GITHUB-ALTERNATIVE] Uncomment the lines below if the Llama Stack server
+# is upgraded to support Streamable HTTP transport for MCP tools, then remove
+# the PyGithub implementation in form_tab.py push_github().
 #export FORM_PUSH_GITHUB_TOOLS='[{"type": "mcp", "server_label": "github", "server_url": "https://api.githubcopilot.com/mcp/"}]'
+#export FORM_PUSH_GITHUB_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_push_github_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
 export FORM_PUSH_GITHUB_TOOLS='[]'
-export FORM_PUSH_GITHUB_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_push_github_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+export FORM_PUSH_GITHUB_PROMPT=""
 
-# Form tab - Step 4: Generate ArgoCD
-export FORM_GENERATE_ARGOCD_TOOLS='[{"type": "mcp", "server_label": "openshift", "server_url": "http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"}, {"type": "mcp", "server_label": "argocd", "server_url": "http://mcp-for-argocd.intelligent-cd.svc.cluster.local:3000/sse"}, {"type": "file_search", "vector_db_names": ["gitops-documentation"]}]'
-export FORM_GENERATE_ARGOCD_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_argocd_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+# Form tab - Step 4: Generate ArgoCD (uses Python template + PyGithub, no LLM/MCP needed)
+# [ARGOCD-LLM-ALTERNATIVE] Uncomment the lines below to use LLM+MCP instead
+# of the Python template in form_tab.py generate_argocd_app().
+#export FORM_GENERATE_ARGOCD_TOOLS='[{"type": "mcp", "server_label": "openshift", "server_url": "http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"}, {"type": "mcp", "server_label": "argocd", "server_url": "http://mcp-for-argocd.intelligent-cd.svc.cluster.local:3000/sse"}, {"type": "file_search", "vector_db_names": ["gitops-documentation"]}]'
+#export FORM_GENERATE_ARGOCD_PROMPT="$(cat ../intelligent-cd-chart/conf/app/form_generate_argocd_prompt.md 2>/dev/null || cat ../intelligent-cd-chart/conf/app/form_prompt.md)"
+export FORM_GENERATE_ARGOCD_TOOLS='[]'
+export FORM_GENERATE_ARGOCD_PROMPT=""
+
+# Form tab - Validate Deployment (LLM + MCP OpenShift for intelligent health checks)
+export FORM_VALIDATE_DEPLOYMENT_TOOLS='[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"}]'
+export FORM_VALIDATE_DEPLOYMENT_PROMPT="You are a Kubernetes deployment validator. Use the MCP tools to check pod health, events, and logs. Diagnose any issues you find."
+
+# Form tab - Validate ArgoCD (LLM + MCP OpenShift + ArgoCD for full gitops health validation)
+export FORM_VALIDATE_ARGOCD_TOOLS='[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server.intelligent-cd.svc.cluster.local:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd.intelligent-cd.svc.cluster.local:3000/sse"}]'
+export FORM_VALIDATE_ARGOCD_PROMPT="You are a GitOps deployment validator. Use both the ArgoCD and OpenShift MCP tools to verify the deployment is healthy."
 
 # RAG test tab configuration
 export RAG_TEST_TAB_VECTOR_DB_NAME='app-documentation'

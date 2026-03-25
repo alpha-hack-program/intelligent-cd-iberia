@@ -87,13 +87,26 @@ gradioUI:
 
     form_tab:
       generate_resources:
-        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
-      generate_helm:
         tools: '[]'
+      apply_best_practices:
+        tools: '[{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
+      generate_helm:
+        tools: '[{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
       push_github:
-        tools: '[{"type":"mcp","server_label":"github","server_url":"https://api.githubcopilot.com/mcp/"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
+        # Currently uses PyGithub directly (no LLM/MCP needed).
+        # [MCP-GITHUB-ALTERNATIVE] Restore the MCP tool below when Llama Stack
+        # supports Streamable HTTP transport for MCP tools.
+        # tools: '[{"type":"mcp","server_label":"github","server_url":"https://api.githubcopilot.com/mcp/"}]'
+        tools: '[]'
       generate_argocd:
-        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
+        # [ARGOCD-LLM-ALTERNATIVE] Currently uses Python template + PyGithub.
+        # Restore the MCP tools below to use LLM+MCP instead.
+        # tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd:3000/sse"},{"type":"file_search","vector_db_names":["gitops-documentation"]}]'
+        tools: '[]'
+      validate_deployment:
+        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"}]'
+      validate_argocd:
+        tools: '[{"type":"mcp","server_label":"openshift","server_url":"http://ocp-mcp-server:8080/sse"},{"type":"mcp","server_label":"argocd","server_url":"http://mcp-for-argocd:3000/sse"}]'
 
   env:
     LOG_LEVEL: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL

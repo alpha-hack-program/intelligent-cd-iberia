@@ -11,38 +11,38 @@ RESOURCE REQUESTS AND LIMITS:
 
 MANDATORY DEPLOYMENT RESOURCE CONFIGURATION TO ADD IF MISSING:
 resources:
-    requests:
-    memory: 256Mi
-    cpu: 250m
-    limits:
-    memory: 512Mi
-    cpu: 500m
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
 
 HEALTH CHECKS FOR APPLICATION SERVICES:
 
 MANDATORY LIVENESS PROBE TO ADD IF MISSING:
 livenessProbe:
-    failureThreshold: 3
-    httpGet:
+  failureThreshold: 3
+  httpGet:
     path: /q/health/live
     port: 8080
     scheme: HTTP
-    initialDelaySeconds: 0
-    periodSeconds: 30
-    successThreshold: 1
-    timeoutSeconds: 10
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  successThreshold: 1
+  timeoutSeconds: 10
 
 MANDATORY READINESS PROBE TO ADD IF MISSING:
 readinessProbe:
-    failureThreshold: 3
-    httpGet:
+  failureThreshold: 3
+  httpGet:
     path: /q/health/ready
     port: 8080
     scheme: HTTP
-    initialDelaySeconds: 0
-    periodSeconds: 30
-    successThreshold: 1
-    timeoutSeconds: 10
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  successThreshold: 1
+  timeoutSeconds: 10
 
 CONFIGMAP INTEGRATION PATTERNS:
 - Use environment variables from ConfigMaps for application configuration
@@ -52,12 +52,27 @@ CONFIGMAP INTEGRATION PATTERNS:
 EXAMPLE CONFIGMAP USAGE IN DEPLOYMENT:
 env:
 - name: APP_CONFIG_VALUE
-    valueFrom:
+  valueFrom:
     configMapKeyRef:
-        name: app-config
-        key: config-value
+      name: app-config
+      key: config-value
 - name: DATABASE_URL
-    valueFrom:
+  valueFrom:
     configMapKeyRef:
-        name: app-config
-        key: database-url
+      name: app-config
+      key: database-url
+
+KUBERNETES DEFAULT FIELDS TO REMOVE:
+The Kubernetes API server injects many default values when creating resources.
+These MUST be removed when cleaning resources for GitOps or Helm chart generation:
+- progressDeadlineSeconds: 600
+- revisionHistoryLimit: 10
+- strategy.type: RollingUpdate (with default maxSurge: 25%, maxUnavailable: 25%)
+- terminationMessagePath: /dev/termination-log
+- terminationMessagePolicy: File
+- dnsPolicy: ClusterFirst
+- restartPolicy: Always
+- schedulerName: default-scheduler
+- terminationGracePeriodSeconds: 30
+- securityContext: {} (if empty)
+Only keep these fields if the user explicitly set non-default values.

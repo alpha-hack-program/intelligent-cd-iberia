@@ -3,3 +3,4 @@ docs/images/architecture-v*
 ingest-pipeline.yaml
 architecture-v*.drawio
 .env
+__pycache__/

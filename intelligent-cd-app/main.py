@@ -159,7 +159,7 @@ def main():
         show_error=True,
         ssr_mode=False,
         theme=THEME,
-        css=CSS
+        css=CSS,
     )
 
 if __name__ == "__main__":
