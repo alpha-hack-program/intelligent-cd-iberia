@@ -7,9 +7,9 @@ If you are having issues with the Intelligent CD installation, you can clean up 
 If you already deployed the discounts application, you can clean up the namespaces by running the following commands:
 
 ```bash
-oc delete application.argoproj.io/discounts-gitops -n openshift-gitops
+oc delete application.argoproj.io/discounts -n openshift-gitops
 oc delete ns/discounts-gitops 
-oc delete ns/discounts-manually-created
+oc delete ns/discounts-validation
 ```
 
 ## Clean the GitOps repository

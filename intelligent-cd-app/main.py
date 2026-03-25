@@ -98,6 +98,7 @@ def initialize_client() -> Tuple[LlamaStackClient, str, str, str]:
         m.id for m in models
         if (m.custom_metadata or {}).get("model_type") == "llm"
     )
+    print(f"Models: {models}")
     model = os.getenv("DEFAULT_LLM_MODEL", first_model)
 
     # Log configuration summary

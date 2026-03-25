@@ -49,9 +49,9 @@ export ARGOCD_BASE_URL=$ARGOCD_BASE_URL
 export ARGOCD_API_TOKEN=$ARGOCD_API_TOKEN
 
 export LLAMA_STACK_URL=${LLAMA_STACK_URL:-http://localhost:8321}
-export DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-vllm-inference/llama-4-scout-17b-16e-w4a16}
+# export DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-vllm-inference/llama-4-scout-17b-16e-w4a16}
 echo "LLAMA_STACK_URL: $LLAMA_STACK_URL"
-echo "DEFAULT_LLM_MODEL: $DEFAULT_LLM_MODEL"
+echo "DEFAULT_LLM_MODEL: $MODEL_NAME"
 
 # Shared LLM settings
 export TEMPERATURE=0.1

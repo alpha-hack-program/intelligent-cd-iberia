@@ -25,7 +25,8 @@ def get_folders_config() -> dict:
             "deployment-configuration-best-practices.md",
             "namespace-resources-best-practices.md",
             "argocd-applications-creation-best-practices.md",
-            "github-operations-best-practices.md"
+            "github-operations-best-practices.md",
+            "helm-chart-best-practices.md"
         ]
     }
     
@@ -373,7 +374,7 @@ if __name__ == "__main__":
     # Set to "false" to disable SSL verification for self-signed certificates
     ssl_verify = os.environ.get("SSL_VERIFY", "true").lower() != "false"
     # Set to "true" to delete and recreate vector stores (useful for testing new RAG content)
-    recreate_stores = os.environ.get("RECREATE_VECTOR_STORES", "false").lower() == "true"
+    recreate_stores = os.environ.get("RECREATE_VECTOR_STORES", "true").lower() == "true"
 
     # 1. Create KFP client
     print(f'Connecting to Data Science Pipelines: {kubeflow_endpoint}')
