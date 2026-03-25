@@ -34,6 +34,7 @@ COPY utils.py .
 # Copy application modules
 COPY tabs/ ./tabs/
 COPY gradio_app/ ./gradio_app/
+COPY pipeline/ ./pipeline/
 
 # Copy assets folder for chatbot avatars
 COPY assets/ ./assets/

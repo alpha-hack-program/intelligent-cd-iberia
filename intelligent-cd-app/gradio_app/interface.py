@@ -605,7 +605,7 @@ def create_demo(
                                 )
 
                     # ============== MCP Test Tab ============== #
-                    with gr.TabItem("🤖 MCP Test"):
+                    with gr.TabItem("🤖 MCP"):
                         status_indicator = gr.Textbox(
                             label="Status", value="Ready to test MCP server",
                             interactive=False, show_label=False,
@@ -629,7 +629,7 @@ def create_demo(
                         execute_btn = gr.Button("Execute Method", variant="primary", size="lg")
 
                     # ============== RAG Test Tab ============== #
-                    with gr.TabItem("📚 RAG Test"):
+                    with gr.TabItem("📚 RAG"):
                         rag_input = gr.Textbox(
                             label="RAG Query",
                             value="Based on the documents stored in the RAG, please, tell me which teams and emails I need to contact to approve that my system is not stateless and I also need a route",
@@ -645,7 +645,7 @@ def create_demo(
                         gr.Markdown("Modify the RAG query above, then click Send. Use RAG Status for configuration details.")
 
                     # ============== System Status Tab ============== #
-                    with gr.TabItem("🔍 System Status"):
+                    with gr.TabItem("🔍 Status"):
                         system_status_btn = gr.Button("Check System Status", variant="primary", size="lg")
                         gr.Markdown("Click the button above to view system information in the right panel.")
 
