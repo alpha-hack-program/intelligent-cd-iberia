@@ -5,6 +5,7 @@ Wizard-style UI powered by LangGraph for the Intelligent CD pipeline,
 plus existing Chat, MCP Test, RAG Test, and System Status tabs.
 """
 
+import os
 import uuid
 
 import gradio as gr
@@ -21,6 +22,15 @@ if TYPE_CHECKING:
 
 
 THEME = gr.themes.Soft()
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable (empty/unset → default)."""
+    v = os.getenv(name)
+    if v is None or not str(v).strip():
+        return default
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
 
 # ------------------------------------------------------------------ #
 #  Phase definitions                                                   #
@@ -224,6 +234,8 @@ def create_demo(
     system_status_tab: 'SystemStatusTab',
     form_tab: 'FormTab',
 ):
+    show_llm_config_display = _env_bool("SHOW_LLM_CONFIG_DISPLAY", default=False)
+
     wizard_app = build_wizard_app()
     auto_app = build_auto_app()
 
@@ -582,8 +594,13 @@ def create_demo(
                         current_phase = gr.State(value=0)
 
                         form_config_display = gr.Markdown(
-                            value=form_tab.get_config_display(),
+                            value=(
+                                form_tab.get_config_display()
+                                if show_llm_config_display
+                                else ""
+                            ),
                             elem_classes=["config-display"],
+                            visible=show_llm_config_display,
                         )
 
                     # ============== Chat Tab ============== #
@@ -612,8 +629,13 @@ def create_demo(
                                         save_btn = gr.Button("Save", variant="primary", size="md", scale=1)
                                         clear_btn = gr.Button("Clear", variant="secondary", size="md", scale=1)
                                 config_display = gr.Markdown(
-                                    value=chat_tab.get_config_display(),
+                                    value=(
+                                        chat_tab.get_config_display()
+                                        if show_llm_config_display
+                                        else ""
+                                    ),
                                     elem_classes=["config-display"],
+                                    visible=show_llm_config_display,
                                 )
 
                     # ============== MCP Test Tab ============== #
