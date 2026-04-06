@@ -1,5 +1,5 @@
 # Build stage
-FROM registry.redhat.io/ubi9/python-312:latest as builder
+FROM registry.access.redhat.com/ubi9/python-312:latest as builder
 
 # Set working directory
 WORKDIR /app
@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage
-FROM registry.redhat.io/ubi9-minimal:latest
+FROM registry.access.redhat.com/ubi9-minimal:latest
 
 # Install Python runtime and tar (needed to extract oc CLI)
 RUN microdnf install -y python312 tar gzip && \
