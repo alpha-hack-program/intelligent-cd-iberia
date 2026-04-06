@@ -22,6 +22,9 @@ def generate_helm_node(state: PipelineState) -> dict:
 
     from pipeline.graph import live_progress
 
+    header = "═══ Step 3: Generate Helm Chart & Push to GitHub ═══"
+    log.append(header)
+    live_progress(header)
     msg = f"Generating Helm chart '{chart_name}' from {len(enhanced_yaml)} chars of YAML..."
     log.append(msg)
     live_progress(msg)

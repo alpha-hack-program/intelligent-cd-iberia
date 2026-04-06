@@ -91,6 +91,9 @@ def fetch_resources_node(state: PipelineState) -> dict:
     from pipeline.graph import live_progress
 
     log: list[str] = state.get("progress_log", [])[:]
+    header = "═══ Step 1: Fetch & Apply Best Practices ═══"
+    log.append(header)
+    live_progress(header)
     msg = f"Fetching resources from namespace '{namespace}'..."
     log.append(msg)
     live_progress(msg)

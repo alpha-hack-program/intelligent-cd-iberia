@@ -50,6 +50,7 @@ def generate_argocd_node(state: PipelineState) -> dict:
     github_repo = os.getenv("GITHUB_GITOPS_REPO", "")
     log = state.get("progress_log", [])[:]
 
+    _log(log, "═══ Step 4: Deploy with ArgoCD ═══")
     _log(log, "Generating ArgoCD Application manifest...")
 
     argocd_yaml = _ARGOCD_APP_TEMPLATE.format(

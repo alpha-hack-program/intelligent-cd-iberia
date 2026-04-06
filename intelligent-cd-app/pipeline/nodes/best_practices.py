@@ -16,6 +16,7 @@ def _resource_to_yaml(resource: dict) -> str:
     return yaml.dump(resource, default_flow_style=False, sort_keys=False).rstrip()
 
 
+
 def _compute_diff_summary(before_yaml: str, after_yaml: str, kind: str, name: str) -> list[str]:
     """Compare before/after YAML and produce human-readable change lines."""
     before_lines = before_yaml.splitlines()
@@ -86,7 +87,9 @@ def apply_best_practices_node(state: PipelineState) -> dict:
         before_yaml = _resource_to_yaml(res)
         message = (
             f"Here is a pre-cleaned Kubernetes {kind} YAML resource.\n"
-            f"Apply best practices from the documentation and return ONLY the improved YAML.\n\n"
+            f"Apply best practices from the documentation and return ONLY the improved YAML.\n"
+            f"Do NOT include any explanation, commentary, or tool call syntax.\n"
+            f"Your entire response must be valid YAML and nothing else.\n\n"
             f"{before_yaml}"
         )
         try:
