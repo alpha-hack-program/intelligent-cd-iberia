@@ -44,6 +44,12 @@ def validate_deployment_node(state: PipelineState) -> dict:
       4. Python (finally): delete namespace
     """
     from pipeline.graph import get_shared_context
+    from pipeline.graph import live_progress
+
+    log: list[str] = state.get("progress_log", [])[:]
+    header = "═══ Step 2: Validate Deployment ═══"
+    log.append(header)
+    live_progress(header)
 
     namespace = state["namespace"]
     enhanced_yaml = state.get("enhanced_yaml", "")
