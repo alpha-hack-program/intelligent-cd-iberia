@@ -298,7 +298,7 @@ def create_demo(
         if len(live_buf) != prev_len:
             yield _make_running_yield("\n".join(live_buf), pipe_st, cur_phase)
 
-    def handle_next(pipe_st, cur_phase, ns, chart, wtype, sres):
+    def handle_next(pipe_st, cur_phase, ns, chart, wtype, sres, canvas_text):
         chart_name = chart if chart else ns
 
         # --- Reset ---
@@ -332,6 +332,15 @@ def create_demo(
         else:
             thread_id = pipe_st.get("thread_id", str(uuid.uuid4()))
             config = {"configurable": {"thread_id": thread_id}}
+
+            # Sync user edits from Code Canvas back into the graph state
+            # so downstream nodes (validate, helm, etc.) use the edited YAML.
+            if cur_phase == 1 and canvas_text:
+                wizard_app.update_state(
+                    config,
+                    {"enhanced_yaml": canvas_text},
+                    as_node="apply_best_practices",
+                )
             stream_arg = None
 
         new_pipe_st = {"thread_id": config["configurable"]["thread_id"]}
@@ -376,7 +385,7 @@ def create_demo(
             new_phase,
         )
 
-    def handle_run_all(pipe_st, cur_phase, ns, chart, wtype, sres):
+    def handle_run_all(pipe_st, cur_phase, ns, chart, wtype, sres, canvas_text):
         chart_name = chart if chart else ns
         thread_id = str(uuid.uuid4())
         config = {"configurable": {"thread_id": thread_id}}
@@ -425,7 +434,7 @@ def create_demo(
             new_pipe_st, 4,
         )
 
-    def handle_retry(pipe_st, cur_phase):
+    def handle_retry(pipe_st, cur_phase, canvas_text):
         thread_id = pipe_st.get("thread_id")
         if not thread_id:
             return
@@ -435,14 +444,17 @@ def create_demo(
         _ctx()
         set_shared_context({**get_shared_context(), "live_progress": live_buf})
 
+        retry_update = {
+            "validation_passed": None,
+            "validation_result": "",
+            "validation_attempts": 0,
+            "progress_log": [],
+        }
+        if canvas_text:
+            retry_update["enhanced_yaml"] = canvas_text
         wizard_app.update_state(
             config,
-            {
-                "validation_passed": None,
-                "validation_result": "",
-                "validation_attempts": 0,
-                "progress_log": [],
-            },
+            retry_update,
             as_node="apply_best_practices",
         )
 
@@ -671,13 +683,14 @@ def create_demo(
             pipeline_state, current_phase,
             namespace_input, helm_chart_input,
             workload_type_selector, supporting_resources_selector,
+            content_area,
         ]
 
         next_btn.click(fn=handle_next, inputs=_wizard_inputs, outputs=_wizard_outputs)
         run_all_btn.click(fn=handle_run_all, inputs=_wizard_inputs, outputs=_wizard_outputs)
         retry_btn.click(
             fn=handle_retry,
-            inputs=[pipeline_state, current_phase],
+            inputs=[pipeline_state, current_phase, content_area],
             outputs=_wizard_outputs,
         )
         abort_btn.click(
