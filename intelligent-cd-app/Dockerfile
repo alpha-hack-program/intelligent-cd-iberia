@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Runtime stage
 FROM registry.redhat.io/ubi9-minimal:latest
 
-# Install Python runtime only
-RUN microdnf install -y python312 && \
+# Install Python runtime and tar (needed to extract oc CLI)
+RUN microdnf install -y python312 tar gzip && \
     microdnf clean all
 
 # Set working directory
@@ -22,10 +22,10 @@ WORKDIR /app
 COPY --from=builder /opt/app-root/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /opt/app-root/bin /usr/local/bin
 
-# Install kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-    chmod +x kubectl && \
-    mv kubectl /usr/local/bin/
+# Install oc CLI (includes kubectl)
+RUN curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-4.21/openshift-client-linux.tar.gz \
+    | tar xzf - -C /usr/local/bin oc kubectl && \
+    chmod +x /usr/local/bin/oc /usr/local/bin/kubectl
 
 # Copy application code
 COPY main.py .
