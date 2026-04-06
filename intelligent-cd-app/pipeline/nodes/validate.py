@@ -43,13 +43,7 @@ def validate_deployment_node(state: PipelineState) -> dict:
       3. Loop (max 10): call LLM with MCP OpenShift tools to check pod health
       4. Python (finally): delete namespace
     """
-    from pipeline.graph import get_shared_context
-    from pipeline.graph import live_progress
-
-    log: list[str] = state.get("progress_log", [])[:]
-    header = "═══ Step 2: Validate Deployment ═══"
-    log.append(header)
-    live_progress(header)
+    from pipeline.graph import get_shared_context, live_progress
 
     namespace = state["namespace"]
     enhanced_yaml = state.get("enhanced_yaml", "")
@@ -59,6 +53,10 @@ def validate_deployment_node(state: PipelineState) -> dict:
     ctx = get_shared_context()
     call_responses = ctx["call_responses_api"]
     validate_config = ctx.get("config_validate_deployment")
+
+    header = "═══ Step 2: Validate Deployment ═══"
+    log.append(header)
+    live_progress(header)
 
     if not validate_config:
         _log(log, "WARN: Validation config not available, skipping LLM health check.")
